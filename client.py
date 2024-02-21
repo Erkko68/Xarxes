@@ -1,44 +1,100 @@
-import sys # Used for user arguments
+#!/usr/bin/env python
+import argparse
 
-class Elements:
-    def __init__(self, elements):
+##################
+# Initialization #
+##################
+
+# Client Logs Class
+class Log:
+    # Color enumerate
+    COLORS = {
+        'red': '\033[91m',
+        'green': '\033[92m',
+        'yellow': '\033[93m',
+        'blue': '\033[94m',
+        'end': '\033[0m'
+    }
+    # Constructor
+    def __init__(self, debug=False):
+        self.debug = debug
+
+    # Colored message function
+    def _colored_message(self, text, color):
+        return f"{self.COLORS[color]}{text}{self.COLORS['end']}"
+
+    def warning(self, message):
+        if self.debug:
+            print(self._colored_message("[WARNING]", 'yellow') + " " + message)
+
+    def info(self, message):
+        if self.debug:
+            print(self._colored_message("[INFO]", 'blue') + " " + message)
+
+    def error(self, message):
+        if self.debug:
+            print(self._colored_message("[ERROR]", 'red') + " " + message)
+
+# Client Configuration Class
+class Config:
+    def __init__(self, file_path="client.cfg"):
+        # Open file descriptor
+        with open(file_path, 'r') as file:
+            for line in file:
+                 # Skip empty lines
+                if not line.strip():
+                    continue
+                # Split line based on '='
+                key, value = line.strip().split('=')
+                # Split Devices
+                if key == 'Elements':
+                    # Call method to handle elements
+                    value = self.process_elements(value)
+                # Set attribute to object
+                setattr(self, key, value)
+
+    def process_elements(self, elements):
         # Split the string on ';'
         devices = elements.split(';')
         
         # Limit the size of the array to 10 devices
         if len(devices) > 10:
-            print("[Warning] More than 10 devices detected, only the first 10 will be used.")
+            Log.warning("More than 10 devices detected, only the first 10 will be used.")
             devices = devices[:10] # Only take first 10 devices
         
-        # Set devices array [0-9] as attribute
-        setattr(self,'Device',devices)
+        return devices
+    
+    # Function to validate that the object has all the correct configs
+    required_params = ['Name', 'Situation', 'Elements', 'MAC', 'Local-TCP', 'Server', 'Srv-UDP']
+    def validate(self):
+        for param in self.required_params:
+            if not hasattr(self, param) or not getattr(self, param):
+                return False
+        return True
 
-class Config:
-    def __init__(self, file_path):
-        # Open file descriptor
-        with open(file_path, 'r') as file:
-            for line in file:
-                # Split line based on '='
-                key, value = line.split('=')
-                # Split Devices
-                if key == 'Elements':
-                    value=Elements(value)
-                # Set attribute to object
-                setattr(self, key, value)
+# Function to get user arguments
+def args_parser():
+    # Initialise parser
+    parser = argparse.ArgumentParser(usage="client.py [-h] [-c client_config.cfg] [-d]")
+    # Define Optional arguments
+    parser.add_argument('-c', type=str, help="Path to config file", default="client.cfg",metavar="config_name")
+    parser.add_argument('-d', action='store_true', help="Enable debugging mode")
+    # Return user args
+    return parser.parse_args()
 
 def main():
-    # Check if the number of command-line arguments is correct
-    if len(sys.argv) != 3 or sys.argv[1] != '-c':
-        print("Usage: python script.py -c <config_file>")
-        return
-
-    # Get the file path
-    file_path = sys.argv[2]
-
+    # Get Arguments
+    args = args_parser()
+    # Initialize logs only when debug mode is enabled
+    log = Log(args.d)
     # Create config object
-    obj = Config(file_path)
-    for key in obj.__dict__:
-        print(f"{key}: {getattr(obj, key)}")
+    config = Config(args.c)
+
+    if not config.validate():
+        log.error("Found error at client configuration values.")
+
+    for key in config.__dict__:
+        print(f"{key}: {getattr(config, key)}")
 
 # Init call
 if __name__ == "__main__":
