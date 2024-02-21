@@ -1,5 +1,16 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+
+###########
+# Imports #
+###########
+
+# Args
 import argparse
+# Sockets
+import socket
+import select
+# Byte conversion
+import struct
 
 ##################
 # Initialization #
@@ -82,6 +93,28 @@ def args_parser():
     # Return user args
     return parser.parse_args()
 
+# Class for binary conversion
+class Bytes:
+    # MAC adress string to MAC byte format
+    def MAC_to_bytes(MAC_string):
+        # Split the MAC address string into components
+        parts = MAC_string.split(':')
+        
+        # Convert each hexadecimal part into bytes, then join them in a binary array
+        MAC_bytes = b''.join([struct.pack('B', int(part, 16)) for part in parts])
+        
+        return MAC_bytes
+
+class PDU_UDP:
+    # Create constructor that returns a byte array (packet)
+    # Create constructor that receives byte array and returns object
+    def __init__(self,type,MAC,rnd,data):
+        self.type=type
+        self.MAC=Bytes.MAC_to_bytes(MAC)
+        self.rnd=rnd
+        self.data=data
+        
+
 def main():
     # Get Arguments
     args = args_parser()
@@ -95,6 +128,8 @@ def main():
 
     for key in config.__dict__:
         print(f"{key}: {getattr(config, key)}")
+
+    Bytes.MAC_to_bytes("00:B0:D0:63:C2:26")
 
 # Init call
 if __name__ == "__main__":
