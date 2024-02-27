@@ -63,7 +63,7 @@ class Client:
         'WAIT_ACK_SUBS': 0Xa2,
         'WAIT_INFO': 0Xa3,
         'WAIT_ACK_INFO': 0Xa4,
-        'SUBCRIBED': 0Xa5,
+        'SUBSCRIBED': 0Xa5,
         'SEND_HELLO': 0Xa6
     }
 
@@ -102,7 +102,8 @@ class Client:
         # Set default status
         self.status = Client.status['NOT_SUBSCRIBED']
 
-    def _process_elements(self, elements):
+    @staticmethod
+    def _process_elements(elements):
         devices = elements.split(';')
         if len(devices) > 10:
             Log.warning("More than 10 devices detected, only the first 10 will be used.")
@@ -163,26 +164,26 @@ class PDU_UDP:
         return uchar, mac, rand, data
 
     @staticmethod
-    def send(packet, client):
+    def send(packet, client_conf):
         try:
-            bytecount = 0
-            while bytecount < len(packet[bytecount:]):
-                bytecount = sock_udp.sendto(packet, (client.Server, client.SrvUDP))
+            byte_count = 0
+            while byte_count < len(packet[byte_count:]):
+                byte_count = sock_udp.sendto(packet, (client_conf.Server, client_conf.SrvUDP))
                 # Print information
                 Log.info(
-                    f'Client {client.Name} sent {bytecount} bytes during {Log.get_key(packet[0], PDU_UDP.packet_type)}.')
+                    f'Client {client_conf.Name} sent {byte_count} bytes during {Log.get_key(packet[0], PDU_UDP.packet_type)}.')
                 # Check if all bytes were sent
-                if bytecount < len(packet[bytecount:]):
+                if byte_count < len(packet[byte_count:]):
                     # If not all bytes were sent truncate the packet and send remaining information.
                     Log.warning(
-                        f'Client {client.Name}: Not all bytes were sent during {Log.get_key(packet[0], PDU_UDP.packet_type)}!, sending remaining information...')
-                    packet = packet[bytecount:]
+                        f'Client {client_conf.Name}: Not all bytes were sent during {Log.get_key(packet[0], PDU_UDP.packet_type)}!, sending remaining information...')
+                    packet = packet[byte_count:]
 
-            Log.info(f'Client {client.Name} sent {Log.get_key(packet[0], PDU_UDP.packet_type)} successfully.')
+            Log.info(f'Client {client_conf.Name} sent {Log.get_key(packet[0], PDU_UDP.packet_type)} successfully.')
 
         except Exception as e:
             Log.error(
-                f'Unexpected error when sending {Log.get_key(packet[0], PDU_UDP.packet_type)} by client: {client.Name}: {e}',
+                f'Unexpected error when sending {Log.get_key(packet[0], PDU_UDP.packet_type)} by client: {client_conf.Name}: {e}',
                 True)
 
 

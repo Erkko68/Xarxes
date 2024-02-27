@@ -44,7 +44,7 @@ struct pdu_udp{
 
 /**
  * @brief Functions to show log messages
- * 
+ *
  * @param str The string to print
  * @param bool If set to true this message will ignore debug mode and always print the msg.
  */
@@ -111,13 +111,13 @@ struct server server_config(const char *filename) {
  * @param argc The number of args
  * @param argv An array containing all the args
  * @param config_file A pointer to the config_file string
- * @param controlers A pointer to the controllers string
+ * @param controllers A pointer to the controllers string
  */
-void args(int argc, char *argv[], char **config_file, char **controlers) {
+void args(int argc, char *argv[], char **config_file, char **controllers) {
     int i = 1;
     /* Default file names */
     *config_file = "server.cfg";
-    *controlers = "controllers.dat";
+    *controllers = "controllers.dat";
     /* Loop through command line arguments */
     for (;i < argc; i++) {
         /* Check for -c flag */
@@ -132,7 +132,7 @@ void args(int argc, char *argv[], char **config_file, char **controlers) {
         } else if (strcmp(argv[i], "-u") == 0) {
             /* If -u flag is found, check if there's a file name next */
             if (i + 1 < argc) {
-                *controlers = argv[i + 1];
+                *controllers = argv[i + 1];
                 i++; /* Ignore next arg */
             } else {
                 lerror(" -u argument requires a file name.",true);
@@ -150,8 +150,8 @@ int main(int argc, char *argv[]) {
     struct server my_server;
     /*Get config and controllers file name*/
     char *config_file;
-    char *controlers;
-    args(argc, argv, &config_file, &controlers);
+    char *controllers;
+    args(argc, argv, &config_file, &controllers);
     /*Initialise server configuration struct*/
     my_server = server_config(config_file);
 
