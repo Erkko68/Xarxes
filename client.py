@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # Args
-import argparse, re
+import argparse
 # Sockets
 import socket, select
 # Time
@@ -79,27 +79,19 @@ class Client:
                     # Split into key-value
                     key, value = line.split('=') 
 
-                    if key == 'Name':
-                        if not len(value) == 8: Log.warning("Name must be 8 alphanumeric characters long.",True)
-                    elif key == 'Situation':
-                        if not re.match(r'^B\d{2}L\d{2}R\d{2}A\d{2}$', value): Log.warning("Invalid Situation Format.",True)
-                    elif key == 'Elements':
+                    if key not in ['Name','Situation','MAC','Local-TCP', 'Srv-UDP','Server']:
+                        continue # Ignore any other configuration found
+                    
+                    if key == 'Elements':
                         value = self._process_elements(value)
-                    elif key == 'MAC':
-                        if not re.match(r'^([0-9a-fA-F]{12})$', value): Log.error("Invalid MAC address.",True)
                     elif key in ['Local-TCP', 'Srv-UDP']:
                         key = key.replace('-','')
                         # Cast server port to int
                         value = int(value)
-                        if not 0 <= int(value) <= 65535: Log.error(f"Invalid {key} Port, must be between 0 and 65535.",True)
-                    elif key == 'Server':
-                        if not re.match(r'^(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$', value): Log.error("Invalid Server IP.",True)
-                    else:
-                        continue # Ignore any other configuration found
 
                     # Set attribute
                     setattr(self, key, value)
-        # Throw exception in case of error
+        
         except Exception as e:
             Log.error(f'Unexpected error while reading file {file_path}: {e}')
         
@@ -111,8 +103,6 @@ class Client:
         if len(devices) > 10:
             Log.warning("More than 10 devices detected, only the first 10 will be used.")
             devices = devices[:10] # Take the first 10 devices
-        for device in devices:
-            if not re.match(r'^[A-Z]{3}-\d{1}-[IO]$', device): Log.warning(f"Invalid Device Format: {device}")
         return devices
 
 # Class to encode client data

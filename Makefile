@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -ansi -std=c99 -pedantic -Wall
+CFLAGS = -ansi -pedantic -Wall
 
 server: server.c
 	$(CC) $(CFLAGS) -o server server.c
