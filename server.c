@@ -3,6 +3,9 @@
 #include <string.h>
 #include <stdbool.h>
 
+#include <sys/socket.h>
+#include <sys/types.h>
+
 /*Init debug mode setting*/
 int DEBUG = false;
 
@@ -39,8 +42,12 @@ struct pdu_udp{
     char data[80];
 };
 
-/*Functions to show log messages*/
-
+/**
+ * @brief Functions to show log messages
+ * 
+ * @param str The string to print
+ * @param bool If set to true this message will ignore debug mode and always print the msg.
+ */
 void lerror(const char *str, bool override){
     if(DEBUG || override){
         printf("[Error] %s\n",str);
@@ -58,7 +65,12 @@ void linfo(const char *str, bool override){
     }
 }
 
-/*Function to read server config*/
+/**
+ * @brief Returns a struct with the server configuration.
+ * 
+ * @param filename The name of the file to read the configuration.
+ * @return struct server 
+ */
 struct server server_config(const char *filename) {
     /*Create new struct*/
     struct server srv;
@@ -93,7 +105,14 @@ struct server server_config(const char *filename) {
     return srv;
 }
 
-/*Function to parse command line arguments and get the file name*/
+/**
+ * @brief Function to parse command line arguments and get the file name.
+ * 
+ * @param argc The number of args
+ * @param argv An array containing all the args
+ * @param config_file A pointer to the config_file string
+ * @param controlers A pointer to the controlers string
+ */
 void args(int argc, char *argv[], char **config_file, char **controlers) {
     int i = 1;
     /* Default file names */
@@ -126,7 +145,7 @@ void args(int argc, char *argv[], char **config_file, char **controlers) {
         }
     }
 }
-
+    
 int main(int argc, char *argv[]) {
     struct server my_server;
     /*Get config and controlers file name*/
