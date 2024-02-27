@@ -1,55 +1,44 @@
 #!/usr/bin/env python
 # Args
-import argparse, re, os
+import argparse, re
 # Sockets
 import socket, select
 # Time
-import time, datetime
+import time
 
 class Log:
     COLORS = {'red':'\033[91m','yellow':'\033[93m','blue':'\033[94m','end':'\033[0m'}
 
-    @staticmethod
-    def _colored_message(text, color):
-        return f"{Log.COLORS[color]}{text}{Log.COLORS['end']}"
-    
     # Set boolean in case the user uses -d argument
     debug = False
 
-    # Create a log file at the start of the program
-    log_dir = "logs"
-    os.makedirs(log_dir, exist_ok=True)
-    log_file = open(os.path.join(log_dir, datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log"), 'a')
-
-    @staticmethod   
-    def _write_to_file(message):
-        # Remove color codes from the message before writing to the file
-        for color_code in Log.COLORS.values():
-            message = message.replace(color_code, '')
-        message_with_time = f"{datetime.datetime.now().strftime('[%H:%M:%S]')} {message}"
-        Log.log_file.write(message_with_time + "\n")
+    @staticmethod
+    def _colored_message(text, color):
+        return f"{Log.COLORS[color]}{text}{Log.COLORS['end']}"
 
     @staticmethod
     def warning(message, override=False):
         msg = Log._colored_message("[WARNING]", 'yellow') + " " + message
         if Log.debug or override:
             print(msg)
-        Log._write_to_file(msg)
 
     @staticmethod
     def info(message, override=False):
         msg = Log._colored_message("[INFO]", 'blue') + " " + message
         if Log.debug or override:
             print(msg)
-        Log._write_to_file(msg)
 
     @staticmethod
     def error(message, override=False):
         msg = Log._colored_message("[ERROR]", 'red') + " " + message
         if Log.debug or override:
             print(msg)
-        Log._write_to_file(msg)
         exit(-1)
+
+    def get_key(val,dict):
+        for key, value in dict.items():
+            if val == value:
+                return key
 
 # Function to get user arguments
 def args_parser():
@@ -97,7 +86,7 @@ class Client:
                     elif key == 'Elements':
                         value = self._process_elements(value)
                     elif key == 'MAC':
-                        if not re.match(r'^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$', value): Log.error("Invalid MAC address.",True)
+                        if not re.match(r'^([0-9a-fA-F]{12})$', value): Log.error("Invalid MAC address.",True)
                     elif key in ['Local-TCP', 'Srv-UDP']:
                         key = key.replace('-','')
                         # Cast server port to int
@@ -141,7 +130,7 @@ class Encode:
 # Class used to contain all PDU_UDP protocol methods
 class PDU_UDP:
     # Define packet types
-    type = {
+    packet_type = {
         'SUBS_REQ'  : 0x00,
         'SUBS_ACK'  : 0X01,
         'SUBS_REJ'  : 0X02,
@@ -177,70 +166,92 @@ class PDU_UDP:
 
         return uchar, mac, rand, data
     
-    def send(packet,type,client):
+    def send(packet,client):
         try:
             bytecount = 0
             while bytecount < len(packet[bytecount:]):
                 bytecount = sock_udp.sendto(packet, (client.Server, client.SrvUDP))
                 # Print information
-                Log.info(f'Client {client.Name} sent {bytecount} bytes during {type}.')
+                Log.info(f'Client {client.Name} sent {bytecount} bytes during {Log.get_key(packet[0],PDU_UDP.packet_type)}.')
                 # Check if all bytes were sent
                 if bytecount < len(packet[bytecount:]):
                     # If not all bytes were sent truncate the packet and send remaining information.
-                    Log.warning(f'Client {client.Name}: Not all bytes were sent!, sending remaining information...')
+                    Log.warning(f'Client {client.Name}: Not all bytes were sent during {Log.get_key(packet[0],PDU_UDP.packet_type)}!, sending remaining information...')
                     packet = packet[bytecount:]
             
-            Log.info(f'Client {client.Name} sent all {type} bytes successfully.',True)
+            Log.info(f'Client {client.Name} sent {Log.get_key(packet[0],PDU_UDP.packet_type)} successfully.')
 
         except Exception as e:
-            Log.error(f'Unexpected error when sending {type} packet by client: {client.Name}: {e}',True)
+            Log.error(f'Unexpected error when sending {Log.get_key(packet[0],PDU_UDP.packet_type)} by client: {client.Name}: {e}',True)
 
 ########################
 # Subscription request #
 ########################
     
-def subscription_request(client):
+def send_subscription_packet(client):
     # Get client data
     data = client.Name + ',' + client.Situation
     # Create PDU_UDP packet
-    packet_type = PDU_UDP.type['SUBS_REQ']
+    packet_type = PDU_UDP.packet_type['SUBS_REQ']
     num = '00000000'
     packet = PDU_UDP.to_bytes(packet_type,client.MAC,num,data)
 
     # Send packet
-    PDU_UDP.send(packet,'SUBS_REQ',client)
+    PDU_UDP.send(packet,client)
     
     # Set client status
     client.set_status('WAIT_ACK_SUBS')
-    
+
+def subs_request(client):
+    for _ in range(3):
+        # Print subscription request
+        Log.info(f'Starting subscription request for client: {client.Name} [{_+1}/3]',True)
+        sleep = 1
+        for packets_sent in range(7):
+            # Send packet
+
+            send_subscription_packet(client)
+            # Read data
+            try:
+                ready_to_read, _, _ = select.select([sock_udp], [], [], 0)
+            except select.error as e:
+                Log.error(f'Unexpected error when checking for available data on socket {sock_udp}: {e}')
+
+            if ready_to_read:  # Data is available to be read
+                data, addr = sock_udp.recvfrom(103)
+                print(data)
+                break
+            else: # No data available
+                # Increase sleep time
+                if sleep < 3*1 and packets_sent >= 3:
+                    sleep += 1
+                time.sleep(sleep)
+        else:  # If we don't receive data, (break not executed).
+            # Pause subscription request and continue.
+            time.sleep(2)
+            continue 
+        break  # Exit subscription phase if data is received
+    # Print error message
+    Log.info(f"Could not stablish connection with server {client.Server}",True)
+
+# Initialization function
+def _init():
+    global sock_udp, sock_tcp, client # Create global variables
+    args = args_parser() # Get User Initial Arguments
+    Log.debug = args.d # Set Log class to debug mode
+    # Create sockets
+    sock_udp = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) # UDP
+    # TCP
+    client = Client(args.c) # Read and create client config
 
 def main():
-    # Get Arguments
-    args = args_parser()
-    Log.debug = args.d
-
-    # Create sockets
-    # udp
-    global sock_udp, sock_tcp
-    sock_udp = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-    # tcp
-
-    # Create client object
-    client = Client(args.c)
-    print(vars(client))
-
-    '''
-    bytes = PDU_UDP.to_bytes(PDU_UDP.type['SUBS_REQ'],client.MAC,'129344123','lorem ipsum')
-    print(bytes)
-    decoded = PDU_UDP.from_bytes(bytes)
-    print(decoded)
-    '''
-
-    subscription_request(client)
-
+    # Start Subscription Request
+    subs_request(client)
+            
     # Close sockets
     sock_udp.close()
 
 # Init call
 if __name__ == "__main__":
+    _init()
     main()
