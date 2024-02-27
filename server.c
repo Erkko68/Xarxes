@@ -17,8 +17,8 @@ struct server{
     unsigned short udp; /*Range 0-65535*/
 };
 
-/*Define struct for controlers*/
-struct controlers{
+/*Define struct for controllers*/
+struct controllers{
     char name[9];
     char mac[13];
 };
@@ -111,13 +111,13 @@ struct server server_config(const char *filename) {
  * @param argc The number of args
  * @param argv An array containing all the args
  * @param config_file A pointer to the config_file string
- * @param controlers A pointer to the controlers string
+ * @param controlers A pointer to the controllers string
  */
 void args(int argc, char *argv[], char **config_file, char **controlers) {
     int i = 1;
     /* Default file names */
     *config_file = "server.cfg";
-    *controlers = "controlers.dat";
+    *controlers = "controllers.dat";
     /* Loop through command line arguments */
     for (;i < argc; i++) {
         /* Check for -c flag */
@@ -148,7 +148,7 @@ void args(int argc, char *argv[], char **config_file, char **controlers) {
     
 int main(int argc, char *argv[]) {
     struct server my_server;
-    /*Get config and controlers file name*/
+    /*Get config and controllers file name*/
     char *config_file;
     char *controlers;
     args(argc, argv, &config_file, &controlers);
