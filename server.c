@@ -124,16 +124,16 @@ struct server serverConfig(const char *filename) {
         /*String tokenizer (Split key/value)*/
         char *key = strtok(buffer, "=");
         char *value = strtok(NULL, "\n");
-        /*Set config*/
-        if (strcmp(key, "Name") == 0) {
-            strncpy(srv.name, value, sizeof(srv.name) - 1);
+        /*Set config, CAUTTION: We increase the value pointer by one to point the string after the space */
+        if (strcmp(key, "Name ") == 0) {
+            strncpy(srv.name, value+1, sizeof(srv.name) - 1); 
             srv.name[sizeof(srv.name) - 1] = '\0';
-        } else if (strcmp(key, "MAC") == 0) {
-            strncpy(srv.mac, value, sizeof(srv.mac) - 1);
+        } else if (strcmp(key, "MAC ") == 0) {
+            strncpy(srv.mac, value+1, sizeof(srv.mac) - 1);
             srv.mac[sizeof(srv.mac) - 1] = '\0'; 
-        } else if (strcmp(key, "Local-TCP") == 0) {
+        } else if (strcmp(key, "TCP-Port ") == 0) {
             srv.tcp = atoi(value);
-        } else if (strcmp(key, "Srv-UDP") == 0) {
+        } else if (strcmp(key, "UDP-Port ") == 0) {
             srv.udp = atoi(value);
         }
     }
@@ -165,7 +165,7 @@ void args(int argc, char *argv[], char **config_file, char **controllers) {
                 *config_file = argv[i + 1];
                 i++; /* Ignore next arg */
             } else {
-                lerror(" -c argument requires a file name",true);
+                lerror(" -c argument requires a file name.",true);
             }
         } else if (strcmp(argv[i], "-u") == 0) {
             /* If -u flag is found, check if there's a file name next */
@@ -179,13 +179,13 @@ void args(int argc, char *argv[], char **config_file, char **controllers) {
             /* If -d flag is found, set debug mode*/
             DEBUG = true;
         } else {
-            lerror("Invalid argument found",true);
+            lerror("Invalid argument found.",true);
         }
     }
 }
 
 /**
- * @brief A function executed by the subscriptoin proces thread, wich handles the main
+ * @brief A function executed by the subscription proces thread, wich handles the
  *        proces of subscription for the incoming clients.
  * 
  * @param arg The socket file descriptor
@@ -200,11 +200,8 @@ void *subsReq(void *arg) {
     /* Define buffer size */
     char buffer[PDUUDP];
 
-    /* Init client struct to zeros */
-    memset(&client_addr, 0, sizeof(client_addr));
-
     while (1) {
-        int bytes_received = recvfrom(sockfd, buffer, PDUUDP, 0,
+        int bytes_received = recvfrom(sockfd, buffer, sizeof(buffer), 0,
                                      (struct sockaddr *)&client_addr, &client_len);
         struct pdu_udp original_pdu;
         if (bytes_received < 0) {
@@ -219,13 +216,13 @@ void *subsReq(void *arg) {
            original_pdu.type, original_pdu.mac, original_pdu.rnd, original_pdu.data);
 
         /* Echo the message back to the client */ 
-        /*
-        if (sendto(sockfd, buffer, strlen(buffer), 0, 
+        
+        if (sendto(sockfd, buffer, sizeof(buffer), 0, 
                    (const struct sockaddr *)&client_addr, client_len) < 0) {
             perror("sendto failed");
             exit(EXIT_FAILURE);
         }
-        */
+        
     }
 }
 

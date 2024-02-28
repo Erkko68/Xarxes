@@ -77,6 +77,7 @@ class Client:
             with open(file_path, 'r') as file:
                 for line in file:
                     line = line.strip()  # Sanitize line
+                    line = line.replace(' ','')
                     # Ignore newline
                     if not line:
                         continue
@@ -191,52 +192,53 @@ class PDU_UDP:
 # Subscription request #
 ########################
 
-def send_subscription_packet(client):
+def send_subscription_packet(client_conf):
     # Get client data
-    data = client.Name + ',' + client.Situation
+    data = client_conf.Name + ',' + client_conf.Situation
     # Create PDU_UDP packet
     packet_type = PDU_UDP.packet_type['SUBS_REQ']
     num = '00000000'
-    packet = PDU_UDP.to_bytes(packet_type, client.MAC, num, data)
+    packet = PDU_UDP.to_bytes(packet_type, client_conf.MAC, num, data)
 
     # Send packet
-    PDU_UDP.send(packet, client)
-
-    # Set client status
-    client.set_status('WAIT_ACK_SUBS')
+    PDU_UDP.send(packet, client_conf)
 
 
 def subs_request(client_conf):
+    # Set client status
+    client.set_status('WAIT_ACK_SUBS')
+
     for _ in range(3):
         # Print subscription request
         Log.info(f'Starting subscription request for client: {client_conf.Name} [{_ + 1}/3]', True)
         sleep = 1
         for packets_sent in range(7):
             # Send packet
-
             send_subscription_packet(client_conf)
-            # Read data
+
             try:
+                # Check if there is avaiable data
                 ready_to_read, _, _ = select.select([sock_udp], [], [], 0)
-            except select.error as e:
+            except (select.error, OSError, IOError) as e:
                 Log.error(f'Unexpected error when checking for available data on socket {sock_udp}: {e}')
 
             if ready_to_read:  # Data is available to be read
                 data, addr = sock_udp.recvfrom(103)
-                print(data)
-                break
+                print(PDU_UDP.from_bytes(data))
+        
+                break # Exit subscription phase if data is received
             else:  # No data available
                 # Increase sleep time
                 if sleep < 3 * 1 and packets_sent >= 3:
                     sleep += 1
                 time.sleep(sleep)
-        else:  # If we don't receive data, (break not executed).
-            # Pause subscription request and continue.
+        else:  # If we don't receive data, (break not executed) wait and continue new subscription request.
             time.sleep(2)
             continue
         break  # Exit subscription phase if data is received
-    # Print error message
-    Log.info(f"Could not establish connection with server {client_conf.Server}", True)
+    else:
+        # If loop ended print error message
+        Log.info(f"Could not establish connection with server {client_conf.Server}", True)
 
 
 # Initialization function
@@ -247,6 +249,7 @@ def _init():
     # Create sockets
     sock_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
     # TCP
+
     client = Client(args.c)  # Read and create client config
 
 
