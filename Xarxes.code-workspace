@@ -6,7 +6,8 @@
 	],
 	"settings": {
 		"files.associations": {
-			"stdbool.h": "c"
+			"stdbool.h": "c",
+			"inet.h": "c"
 		}
 	}
 }

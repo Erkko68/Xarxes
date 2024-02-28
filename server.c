@@ -3,11 +3,38 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include <sys/socket.h>
-#include <sys/types.h>
+#include <pthread.h>
+
+#include <unistd.h>
+#include <arpa/inet.h>
+
+#define PDUUDP 103
 
 /*Init debug mode setting*/
-int DEBUG = false;
+bool DEBUG = false;
+
+/**
+ * @brief Functions to show log messages
+ *
+ * @param str The string to print
+ * @param bool If set to true this message will ignore debug mode and always display the msg.
+ */
+void lerror(const char *str, bool override){
+    if(DEBUG || override){
+        printf("[Error] %s\n",str);
+    }
+    exit(-1);
+}
+void lwarning(const char *str, bool override){
+    if(DEBUG || override){
+        printf("[Warning] %s\n",str);
+    }
+}
+void linfo(const char *str, bool override){
+    if(DEBUG || override){
+        printf("[Info] %s\n",str);
+    }
+}
 
 /*Define struct for server config*/
 struct server{
@@ -42,28 +69,30 @@ struct pdu_udp{
     char data[80];
 };
 
-/**
- * @brief Functions to show log messages
- *
- * @param str The string to print
- * @param bool If set to true this message will ignore debug mode and always print the msg.
- */
-void lerror(const char *str, bool override){
-    if(DEBUG || override){
-        printf("[Error] %s\n",str);
-    }
-    exit(-1);
+/* Converts a pdu_udp struct packet into a byte array */
+void udpToBytes(const struct pdu_udp *pdu, char *bytes) {
+    int offset = 0;
+    bytes[offset] = pdu->type;
+    offset += sizeof(pdu->type);
+    memcpy(bytes + offset, pdu->mac, sizeof(pdu->mac));
+    offset += sizeof(pdu->mac);
+    memcpy(bytes + offset, pdu->rnd, sizeof(pdu->rnd));
+    offset += sizeof(pdu->rnd);
+    memcpy(bytes + offset, pdu->data, sizeof(pdu->data));
 }
-void lwarning(const char *str, bool override){
-    if(DEBUG || override){
-        printf("[Warning] %s\n",str);
-    }
+/* Converts a byte array into pdu_udp packet format */
+void bytesToUdp(const char *bytes, struct pdu_udp *pdu) {
+    int offset = 0;
+    pdu->type = bytes[offset];
+    offset += sizeof(pdu->type);
+    memcpy(pdu->mac, bytes + offset, sizeof(pdu->mac));
+    offset += sizeof(pdu->mac);
+    memcpy(pdu->rnd, bytes + offset, sizeof(pdu->rnd));
+    offset += sizeof(pdu->rnd);
+    memcpy(pdu->data, bytes + offset, sizeof(pdu->data));
 }
-void linfo(const char *str, bool override){
-    if(DEBUG || override){
-        printf("[Info] %s\n",str);
-    }
-}
+
+
 
 /**
  * @brief Returns a struct with the server configuration.
@@ -71,7 +100,7 @@ void linfo(const char *str, bool override){
  * @param filename The name of the file to read the configuration.
  * @return struct server 
  */
-struct server server_config(const char *filename) {
+struct server serverConfig(const char *filename) {
     /*Create new struct*/
     struct server srv;
     /*Initialise buffer*/
@@ -145,20 +174,96 @@ void args(int argc, char *argv[], char **config_file, char **controllers) {
         }
     }
 }
+
+void *subsReq(void *arg) {
+    /* Get socket */
+    int sockfd = *((int *)arg);
+    /* Init client info */
+    struct sockaddr_in client_addr;
+    socklen_t client_len = sizeof(client_addr);
+    /* Define buffer size */
+    char buffer[PDUUDP];
+
+    /* Init client struct to zeros */
+    memset(&client_addr, 0, sizeof(client_addr));
+
+    while (1) {
+        int bytes_received = recvfrom(sockfd, buffer, PDUUDP, 0,
+                                     (struct sockaddr *)&client_addr, &client_len);
+        struct pdu_udp original_pdu;
+        if (bytes_received < 0) {
+            perror("recvfrom failed");
+            exit(EXIT_FAILURE);
+        }
+
+        /* Print received package information */
+        bytesToUdp(buffer,&original_pdu);
+        
+        printf("Original Struct:\nType: %d\nMAC: %s\nRnd: %s\nData: %s\n\n",
+           original_pdu.type, original_pdu.mac, original_pdu.rnd, original_pdu.data);
+
+        /* Echo the message back to the client */ 
+        /*
+        if (sendto(sockfd, buffer, strlen(buffer), 0, 
+                   (const struct sockaddr *)&client_addr, client_len) < 0) {
+            perror("sendto failed");
+            exit(EXIT_FAILURE);
+        }
+        */
+    }
+}
     
 int main(int argc, char *argv[]) {
-    struct server my_server;
+    int sockfd;
+    pthread_t subs_thread;
+    struct server serv_conf;
+    struct sockaddr_in server_addr;
+    
     /*Get config and controllers file name*/
     char *config_file;
     char *controllers;
     args(argc, argv, &config_file, &controllers);
-    /*Initialise server configuration struct*/
-    my_server = server_config(config_file);
 
-    printf("Name: %s\n", my_server.name);
-    printf("MAC: %s\n", my_server.mac);
-    printf("Local TCP: %hu\n", my_server.tcp);
-    printf("Server UDP: %hu\n", my_server.udp);
+    /*Initialise server configuration struct*/
+    serv_conf = serverConfig(config_file);
+
+    /* Create socket file descriptor */
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+        perror("socket creation failed");
+    }
+
+    /* Initialize struct to zeros */
+    memset(&server_addr, 0, sizeof(server_addr));
+
+    /* Configure server address */
+    server_addr.sin_family = AF_INET; /* Set IPv4 */
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY); /* Accept any incoming address */
+    server_addr.sin_port = htons(serv_conf.udp); /* Port number */
+
+    /* Bind socket to the specified port */
+    if (bind(sockfd, (const struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("bind failed");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Server listening on port 11001...\n");
+
+    /* Create a thread to handle the subscription request proces */
+    if (pthread_create(&subs_thread, NULL,subsReq, &sockfd) != 0) {
+        perror("pthread_create failed");
+        exit(EXIT_FAILURE);
+    }
+
+    while(1){
+        sleep(1);
+        printf("\n");
+    };
+
+    /* Join subscription to main thread when finished (Won't happen) */
+    pthread_join(subs_thread, NULL);
+
+    /*Close the socket*/
+    close(sockfd);
 
     return 0;
 }
