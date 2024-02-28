@@ -69,7 +69,12 @@ struct pdu_udp{
     char data[80];
 };
 
-/* Converts a pdu_udp struct packet into a byte array */
+/**
+ * @brief Converts a pdu_udp struct packet into a byte array 
+ * 
+ * @param pdu The struct representing the pdu_udp packet
+ * @param bytes the byte array to store the encoded struct
+ */
 void udpToBytes(const struct pdu_udp *pdu, char *bytes) {
     int offset = 0;
     bytes[offset] = pdu->type;
@@ -80,7 +85,12 @@ void udpToBytes(const struct pdu_udp *pdu, char *bytes) {
     offset += sizeof(pdu->rnd);
     memcpy(bytes + offset, pdu->data, sizeof(pdu->data));
 }
-/* Converts a byte array into pdu_udp packet format */
+/**
+ * @brief Converts a byte array into pdu_udp packet format
+ * 
+ * @param bytes The byte array to take the data
+ * @param pdu The pdu_udp packet struct to store decoded data
+ */
 void bytesToUdp(const char *bytes, struct pdu_udp *pdu) {
     int offset = 0;
     pdu->type = bytes[offset];
@@ -91,7 +101,6 @@ void bytesToUdp(const char *bytes, struct pdu_udp *pdu) {
     offset += sizeof(pdu->rnd);
     memcpy(pdu->data, bytes + offset, sizeof(pdu->data));
 }
-
 
 
 /**
@@ -175,6 +184,13 @@ void args(int argc, char *argv[], char **config_file, char **controllers) {
     }
 }
 
+/**
+ * @brief A function executed by the subscriptoin proces thread, wich handles the main
+ *        proces of subscription for the incoming clients.
+ * 
+ * @param arg The socket file descriptor
+ * @return void* 
+ */
 void *subsReq(void *arg) {
     /* Get socket */
     int sockfd = *((int *)arg);
@@ -212,7 +228,7 @@ void *subsReq(void *arg) {
         */
     }
 }
-    
+
 int main(int argc, char *argv[]) {
     int sockfd;
     pthread_t subs_thread;
@@ -253,7 +269,7 @@ int main(int argc, char *argv[]) {
         perror("pthread_create failed");
         exit(EXIT_FAILURE);
     }
-
+    
     while(1){
         sleep(1);
         printf("\n");
