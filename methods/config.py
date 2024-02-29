@@ -6,7 +6,7 @@
 Module Methods: Subfolder that contains auxiliar methods for the main client.py program.
 Description: Used to contain client-related configurations, and methods to initialize and modify this data.
 Author: Eric Bitria Ribes
-Version: 0.1
+Version: 0.2
 Last Modified: 2024-2-29
 """
 
@@ -84,6 +84,8 @@ def _process_elements(elements):
     if len(devices) > 10:
         logs.warning("More than 10 devices detected, only the first 10 will be used.")
         devices = devices[:10]
+        for device in devices:
+            if not re.match(r'^[A-Z]{3}-\d{1}-[IO]$', device): logs.warning(f"Invalid Device Format: {device}")
     return devices
 
 """

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Description: A python program that siumaltes the interaction of a client with diferent sensors and sends it to a server.
-             It uses diferent modules located in the folder methods to simplify the readability of this main program.
+             It uses diferent modules located in the methods folder to simplify the readability of this main program.
 Author: Eric Bitria Ribes
 Version: 0.1
 Last Modified: 2024-2-29
@@ -20,37 +20,29 @@ from methods import logs
 from methods import pdu_udp
 from methods import config
 
-# Class to create UDP and TCP packet reception threads and methods
-class RecvThread(threading.Thread):
 
-    def __init__(self, sock_udp):
-        super().__init__()
-        self.sock_udp = sock_udp
-        self.stop_flag = threading.Event()  # Event for signaling the thread to stop
-        self.daemon = True
+def recv_data(sock_udp, stop_flag):
+    while not stop_flag.is_set():
+        try:
+            data_available, _, _ = select.select([sock_udp], [], [], 0)
+        except (select.error, OSError, IOError) as e:
+            logs.error(f'Unexpected error when checking for available data on socket {sock_udp}: {e}')
+            return
 
-    def run(self):
-        while not self.stop_flag.is_set():
+        if data_available:
             try:
-                data_available, _, _ = select.select([self.sock_udp], [], [], 0)
-            except (select.error, OSError, IOError) as e:
-                logs.error(f'Unexpected error when checking for available data on socket {self.sock_udp}: {e}')
-                return
-            
-            if data_available:
-                try:
-                    data, addr = self.sock_udp.recvfrom(103)
-                except Exception as e:
-                    logs.error(f'An error has occurred when receiving data from socket {self.sock_udp}: {e}')
-                # Process Packet
-                print(vars(pdu_udp.from_bytes(data)))
-                stop_subs_flag.set()
+                data, addr = sock_udp.recvfrom(103)
+            except Exception as e:
+                logs.error(f'An error has occurred when receiving data from socket {sock_udp}: {e}')
+            # Process Packet
+            print(vars(pdu_udp.from_bytes(data)))
+            stop_subs_flag.set()
 
-        # Close socket
-        self.sock_udp.close()
+    # Close socket
+    sock_udp.close()
 
-    def stop(self):
-        self.stop_flag.set()
+def stop_receiving(stop_flag):
+    stop_flag.set()
 
 ######################
 # Subscription Phase #
@@ -119,14 +111,14 @@ def _init():
     sock_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
     # TCP
 
+def main():
     ## Flags
     global stop_subs_flag
     stop_subs_flag = threading.Event()
-
-def main():
     # Start packet reception thread
-    packet_thread = RecvThread(sock_udp)
-    packet_thread.start()
+    recv_thread = threading.Thread(target=recv_data, args=(sock_udp, stop_subs_flag))
+    recv_thread.daemon = True
+    recv_thread.start()
 
     # Start Subscription Request
     subs_request(config.client)
