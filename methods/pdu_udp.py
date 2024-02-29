@@ -1,10 +1,12 @@
+#!/usr/bin/env python
+
 # methods/logs.py
 
 """
-Module: methods: Subfolder that contains auxiliar methods for the main client.py program
-Description: Used to contain all PDU_UDP packet related methods for the main client.py program
+Module Methods: Subfolder that contains auxiliar methods for the main client.py program.
+Description: Used to contain all PDU_UDP packet-related methods for the main client.py program.
 Author: Eric Bitria Ribes
-Version: 0.1
+Version: 0.2
 Last Modified: 2024-2-29
 """
 
@@ -12,8 +14,9 @@ Last Modified: 2024-2-29
 from methods import encode
 from methods import logs
 
-# Define a list with all possible packet types
-
+"""
+Define a list with all possible packet types.
+"""
 packet_type = {
     'SUBS_REQ': 0x00,
     'SUBS_ACK': 0X01,
@@ -39,41 +42,64 @@ class Packet:
             self.rnd = args[2]
             self.data = args[3]
         else:
-            logs.error('INvalid PDU_UDP packet initalitation.')
+            logs.error('Invalid PDU_UDP packet initalitation.')
 
-# A function that converts strings values to PDU_UDP format as a byte array
+"""
+Function that converts a pdu_udp packet to a byte array
 
-def to_bytes(uchar, mac, rand, data):
-    uchar = bytes([uchar])
+Parameters:
+- param (packet): The UDP_PDU Packet object containing all its attributes.
+Returns:
+- A byte array
+"""
+def to_bytes(packet):
+    uchar = bytes([packet.packet_type])
     # Convert the MAC address to bytes
-    mac_bytes = encode.string_to_bytes(mac, 13)
+    mac_bytes = encode.string_to_bytes(packet.mac, 13)
     # Convert the 9 bytes long number to bytes
-    rand = encode.string_to_bytes(rand, 9)
+    rand = encode.string_to_bytes(packet.rnd, 9)
     # Convert the data to bytes
-    data = encode.string_to_bytes(data, 80)
+    data = encode.string_to_bytes(packet.data, 80)
 
     # Pack the data into a byte array
     return uchar + mac_bytes + rand + data
 
+"""
+Function that converts a pdu_udp packet to a byte array
 
+Parameters:
+- param (buffer): A byte array representing the packet.
+Returns:
+- A new PDU_UDP Packet Object
+"""
 def from_bytes(buffer):
     # Unpack the data from the byte array
     # Get type
-    uchar = buffer[0]
+    packet_type = buffer[0]
     # Convert the MAC address bytes to a MAC address string
     mac = encode.bytes_to_string(buffer, 1, 13)
     # Ensure the rand number and data string are the correct length
     rand = encode.bytes_to_string(buffer, 14, 9)
     data = encode.bytes_to_string(buffer, 23, 80)
 
-    return uchar, mac, rand, data
+    return Packet(packet_type,mac,rand,data)
 
+"""
+Function to send PDU_UDP packet to the specified socket. If the packet hasn't 
+been sent completly in the first try, sends the remaining information.
 
+Parameters:
+- param (udp_sockfd): The socket where to send the packet
+- param (packet): The packet to send
+- param (client_conf): THe client object containing the necessary information of the client
+Throws:
+- Exception if the sendto function fails
+"""
 def send(udp_sockfd, packet, client_conf):
     try:
         byte_count = 0
         while byte_count < len(packet[byte_count:]):
-            byte_count = udp_sockfd.sendto(packet, (client_conf.Server, client_conf.SrvUDP))
+            byte_count = udp_sockfd.sendto(packet, (client_conf['Server'], client_conf['SrvUDP']))
             # Print information
             logs.info(f'Sent {byte_count} bytes during {logs.get_key(packet[0], packet_type)}.')
             # Check if all bytes were sent

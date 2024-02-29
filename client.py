@@ -6,7 +6,6 @@ Author: Eric Bitria Ribes
 Version: 0.1
 Last Modified: 2024-2-29
 """
-
 # Args
 import argparse
 # Sockets
@@ -19,68 +18,7 @@ import threading
 ## Import OWN auxiliar modules
 from methods import logs
 from methods import pdu_udp
-
-# Configuration Class
-class Config:
-    # Define client status
-    status = {
-        'DISCONNECTED': 0xa0,
-        'NOT_SUBSCRIBED': 0Xa1,
-        'WAIT_ACK_SUBS': 0Xa2,
-        'WAIT_INFO': 0Xa3,
-        'WAIT_ACK_INFO': 0Xa4,
-        'SUBSCRIBED': 0Xa5,
-        'SEND_HELLO': 0Xa6
-    }
-
-    # Status setter
-    def set_status(self, status):
-        self.status = Config.status[status]
-
-    # Class constructor
-    def __init__(self, file_path="client.cfg"):
-        try:
-            # Open file descriptor and process each config value
-            with open(file_path, 'r') as file:
-                for line in file:
-                    line = line.strip()  # Sanitize line
-                    line = line.replace(' ','')
-                    # Ignore newline
-                    if not line:
-                        continue
-                    # Split into key-value
-                    key, value = line.split('=')
-
-                    if key not in ['Name', 'Situation', 'MAC', 'Local-TCP', 'Srv-UDP', 'Server']:
-                        continue  # Ignore any other configuration found
-
-                    if key == 'Elements':
-                        value = self._process_elements(value)
-                    elif key in ['Local-TCP', 'Srv-UDP']:
-                        key = key.replace('-', '')
-                        # Cast server port to int
-                        value = int(value)
-
-                    # Set attribute
-                    setattr(self, key, value)
-
-        except Exception as e:
-            logs.error(f'Unexpected error while reading file {file_path}: {e}')
-
-        # Set default status
-        self.status = Config.status['NOT_SUBSCRIBED']
-
-    @staticmethod
-    def _process_elements(elements):
-        devices = elements.split(';')
-        if len(devices) > 10:
-            logs.warning("More than 10 devices detected, only the first 10 will be used.")
-            devices = devices[:10]  # Take the first 10 devices
-        return devices
-
-# TODO
-def process_packet():
-    stop_subs_flag.set()
+from methods import config
 
 # Class to create UDP and TCP packet reception threads and methods
 class RecvThread(threading.Thread):
@@ -105,8 +43,8 @@ class RecvThread(threading.Thread):
                 except Exception as e:
                     logs.error(f'An error has occurred when receiving data from socket {self.sock_udp}: {e}')
                 # Process Packet
-                decoded_packet = pdu_udp.Packet(pdu_udp.from_bytes(data))
-                process_packet()
+                print(vars(pdu_udp.from_bytes(data)))
+                stop_subs_flag.set()
 
         # Close socket
         self.sock_udp.close()
@@ -119,19 +57,23 @@ class RecvThread(threading.Thread):
 ######################
 
 def send_subscription_packet(client_conf):
-    # Get client data
-    data = client_conf.Name + ',' + client_conf.Situation
-    # Create PDU_UDP packet
+    # Create SUBS_REQ packet
     packet_type = pdu_udp.packet_type['SUBS_REQ']
+    # Set client MAC
+    mac = client_conf['MAC']
     num = '00000000'
-    packet = pdu_udp.to_bytes(packet_type, client_conf.MAC, num, data)
+    # Get client data
+    data = client_conf['Name']+ ',' + client_conf['Situation']
+    # Create PDU_UDP packet
+    
+    packet = pdu_udp.to_bytes(pdu_udp.Packet(packet_type,mac,num,data))
 
     # Send packet
     pdu_udp.send(sock_udp, packet, client_conf)
 
 def subs_request(client_conf):
     # Set client status
-    client.set_status('WAIT_ACK_SUBS')
+    config.set_status('WAIT_ACK_SUBS')
 
     for _ in range(3):
         # Print subscription request
@@ -158,7 +100,7 @@ def subs_request(client_conf):
 # Initialization function
 def _init():
     # Create global variables
-    global sock_udp, sock_tcp, client
+    global sock_udp, sock_tcp
 
     #Get User Arguments
     parser = argparse.ArgumentParser(usage="client.py [-h] [-c client_config.cfg] [-d]")
@@ -171,7 +113,7 @@ def _init():
     # Set Log class to debug mode
     logs.debug = args.d  
     # Read and create client config
-    client = Config(args.c)  
+    config.init_client(args.c)
 
     # Create sockets
     sock_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
@@ -187,7 +129,7 @@ def main():
     packet_thread.start()
 
     # Start Subscription Request
-    subs_request(client)
+    subs_request(config.client)
 
 # Init call
 if __name__ == "__main__":

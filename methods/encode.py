@@ -1,7 +1,9 @@
+#!/usr/bin/env python
+
 # methods/encode.py
 
 """
-Module: methods: Subfolder that contains auxiliar methods for the main client.py program
+Module Methods: Subfolder that contains auxiliar methods for the main client.py program.
 Description: Basic methods to convert strings to bytes and bytes to strings.
 Author: Eric Bitria Ribes
 Version: 0.1
