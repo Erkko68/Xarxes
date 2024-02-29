@@ -1,4 +1,12 @@
 #!/usr/bin/env python
+"""
+Description: A python program that siumaltes the interaction of a client with diferent sensors and sends it to a server.
+             It uses diferent modules located in the folder methods to simplify the readability of this main program.
+Author: Eric Bitria Ribes
+Version: 0.1
+Last Modified: 2024-2-29
+"""
+
 # Args
 import argparse
 # Sockets
@@ -70,6 +78,7 @@ class Config:
             devices = devices[:10]  # Take the first 10 devices
         return devices
 
+# TODO
 def process_packet():
     stop_subs_flag.set()
 
