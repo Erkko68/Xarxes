@@ -1,6 +1,4 @@
-from methods import encode
-from methods import logs
-
+# methods/logs.py
 
 """
 Module: methods: Subfolder that contains auxiliar methods for the main client.py program
@@ -9,6 +7,10 @@ Author: Eric Bitria Ribes
 Version: 0.1
 Last Modified: 2024-2-29
 """
+
+# Import codification module
+from methods import encode
+from methods import logs
 
 # Define a list with all possible packet types
 

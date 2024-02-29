@@ -12,7 +12,6 @@ import threading
 from methods import logs
 from methods import pdu_udp
 
-
 # Configuration Class
 class Config:
     # Define client status
