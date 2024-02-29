@@ -245,9 +245,6 @@ int main(int argc, char *argv[]) {
         perror("socket creation failed");
     }
 
-    /* Initialize struct to zeros */
-    memset(&server_addr, 0, sizeof(server_addr));
-
     /* Configure server address */
     server_addr.sin_family = AF_INET; /* Set IPv4 */
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY); /* Accept any incoming address */
@@ -266,13 +263,8 @@ int main(int argc, char *argv[]) {
         perror("pthread_create failed");
         exit(EXIT_FAILURE);
     }
-    
-    while(1){
-        sleep(1);
-        printf("\n");
-    };
 
-    /* Join subscription to main thread when finished (Won't happen) */
+    /* Join subscription to main thread when finished (Using SIGKILL) */
     pthread_join(subs_thread, NULL);
 
     /*Close the socket*/

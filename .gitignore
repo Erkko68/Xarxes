@@ -1,2 +1,3 @@
 .gitignore
 Xarxes.code-workspace
+methods/__pycache__/
