@@ -13,18 +13,27 @@ Last Modified: 2024-2-29
 import re
 from methods import logs
 
-'''Define client possible status''' 
+
 status = {
     'DISCONNECTED': 0xa0,
-    'NOT_SUBSCRIBED': 0Xa1,
-    'WAIT_ACK_SUBS': 0Xa2,
-    'WAIT_INFO': 0Xa3,
-    'WAIT_ACK_INFO': 0Xa4,
-    'SUBSCRIBED': 0Xa5,
-    'SEND_HELLO': 0Xa6
+    'NOT_SUBSCRIBED': 0xa1,
+    'WAIT_ACK_SUBS': 0xa2,
+    'WAIT_INFO': 0xa3,
+    'WAIT_ACK_INFO': 0xa4,
+    'SUBSCRIBED': 0xa5,
+    'SEND_HELLO': 0xa6
 }
+"""
+Define client possible status
+    'DISCONNECTED': 0xa0,
+    'NOT_SUBSCRIBED': 0xa1,
+    'WAIT_ACK_SUBS': 0xa2,
+    'WAIT_INFO': 0xa3,
+    'WAIT_ACK_INFO': 0xa4,
+    'SUBSCRIBED': 0xa5,
+    'SEND_HELLO': 0xa6
+""" 
 
-'''Define client configurations dictionary'''
 client = {
     'status': status['DISCONNECTED'],
     'file_path': "client.cfg",
@@ -34,16 +43,33 @@ client = {
     'Local_TCP': None,
     'Srv_UDP': None,
     'Server': None,
-    'Elements': []
+    'Elements': [],
+    'Server_Config':[]
 }
-
 """
-Function to initialize the client dictionary.
-
-Parameters:
-- param (file_path): The name of the file to read the client configuration.
+Define client configurations dictionary
+    'status': status['DISCONNECTED'],
+    'file_path': "client.cfg",
+    'Name': None,
+    'Situation': None,
+    'MAC': None,
+    'Local_TCP': None,
+    'Srv_UDP': None,
+    'Server': None,
+    'Elements': [],
+    'Server_Config':[]
 """
+
 def init_client(file_path):
+    """
+    Function to initialize the client dictionary.
+
+    Parameters:
+    - param (file_path): The name of the file to read the client configuration.
+
+    Raises:
+    Invalid formats for the configuration errors.
+    """
     global client
     try:
         with open(file_path, 'r') as file:
@@ -61,7 +87,7 @@ def init_client(file_path):
                 elif key == 'MAC':
                     if not re.match(r'^([0-9a-fA-F]{12})$', value): logs.error("Invalid MAC address.",True)
                 elif key in ['Local-TCP', 'Srv-UDP']:
-                    key = key.replace('-','')
+                    key = key.replace('-','_')
                     # Cast server port to int
                     value = int(value)
                     if not 0 <= int(value) <= 65535: logs.error(f"Invalid {key} Port, must be between 0 and 65535.",True)
@@ -73,13 +99,14 @@ def init_client(file_path):
     except Exception as e:
         logs.error(f'Unexpected error while reading file {file_path}: {e}')
 
-"""
-Auxiliar function to proces the elements of the client.
 
-Parameters:
-- param (elements): The string containing the elements.
-"""
 def _process_elements(elements):
+    """
+    Auxiliar function to proces the elements of the client.
+
+    Parameters:
+    - param (elements): The string containing the elements.
+    """
     devices = elements.split(';')
     if len(devices) > 10:
         logs.warning("More than 10 devices detected, only the first 10 will be used.")
@@ -88,12 +115,13 @@ def _process_elements(elements):
             if not re.match(r'^[A-Z]{3}-\d{1}-[IO]$', device): logs.warning(f"Invalid Device Format: {device}")
     return devices
 
-"""
-Function to set the client status
 
-Parameters:
-- param (name): The name of the client status to set.
-"""
 def set_status(name):
+    """
+    Function to set the client status
+
+    Parameters:
+    - param (name): The name of the client status to set.
+    """
     client['status'] = status[name]
 

@@ -15,13 +15,16 @@ import time
 # Threads
 import threading
 
-## Import OWN auxiliar modules
+## Import auxiliar modules
 from methods import logs
 from methods import pdu_udp
 from methods import config
 
 
-def recv_data(sock_udp, stop_flag):
+def stop_receiving(stop_flag):
+    stop_flag.set()
+
+def udp_recv(sock_udp, stop_flag):
     while not stop_flag.is_set():
         try:
             data_available, _, _ = select.select([sock_udp], [], [], 0)
@@ -35,35 +38,87 @@ def recv_data(sock_udp, stop_flag):
             except Exception as e:
                 logs.error(f'An error has occurred when receiving data from socket {sock_udp}: {e}')
             # Process Packet
-            print(vars(pdu_udp.from_bytes(data)))
-            stop_subs_flag.set()
+            process_packet(pdu_udp.from_bytes(data),addr)
 
     # Close socket
     sock_udp.close()
 
-def stop_receiving(stop_flag):
-    stop_flag.set()
+def process_packet(packet,addr):
+    # Get packet type
+    ptype = packet.packet_type
+
+    # Excute process depending on the packet received
+    if ptype == 0x00: # CLIENT SHOULD NOT RECEIVE THIS ONE
+        logs.info("Received unexpected [SUBS_REQ] packet. Ignoring...")
+    elif ptype == 0x01:
+        process_subs_ack(packet,addr)
+    elif ptype == 0x02:
+        print("2")
+
+    # Set Flags
+    stop_subs_flag.set()
+
+def process_subs_ack(packet,addr):
+    """
+    Processes a [SUBS_ACK] packet and if the client status is correct 
+    it will send a new [SUBS_INFO] packet to the server
+
+    PACKET CONTENTS:
+
+    | [SUBS_ACK] | MAC | RAND_NUM | DATA: (NEW UDP PORT) |
+
+    Parameters:
+    - param (packet): The [SUBS_ACK] packet to analyze
+    - param (addr): The addres to send the response packet [SUBS_INFO]
+
+    Raises:
+    Warning if it receives this packet when the client is not in WAIT_ACK_SUBS status
+    """
+    if config.client['status'] != 0xa2:
+        logs.warning('Shouldn\'t have received [SUBS_ACK] packet, Ignoring.. ')
+    else:
+        # Store Server Information, MAC, Server IP, RAND
+        server_config = [packet.mac,addr[0],packet.rnd]
+        config.client['Server_Config'] = server_config
+
+        # GET UDP Port From Packet
+        udp = 11001
+
+        # Send [SUBS_INFO] packet
+        packet_type = pdu_udp.packet_type['SUBS_INFO']
+        mac = config.client['MAC']
+        num = config.client['Server_Config'][2]
+        # Create Packet data: convert TCP port to string, add "," separator, join each Element into a string (CHANGE-IT IN THE FUTURE)
+        data = str(config.client['Local_TCP']) + ',' + ';'.join(config.client['Elements'])
+
+        # Create and encode packet
+        spacket = pdu_udp.to_bytes(pdu_udp.Packet(packet_type,mac,num,data))
+
+        pdu_udp.send(sock_udp,spacket,config.client['Server'],udp)
+        
+
+
 
 ######################
 # Subscription Phase #
 ######################
 
-def send_subscription_packet(client_conf):
+def send_subscription_packet():
     # Create SUBS_REQ packet
     packet_type = pdu_udp.packet_type['SUBS_REQ']
     # Set client MAC
-    mac = client_conf['MAC']
+    mac = config.client['MAC']
     num = '00000000'
     # Get client data
-    data = client_conf['Name']+ ',' + client_conf['Situation']
+    data = config.client['Name']+ ',' + config.client['Situation']
     # Create PDU_UDP packet
     
     packet = pdu_udp.to_bytes(pdu_udp.Packet(packet_type,mac,num,data))
 
     # Send packet
-    pdu_udp.send(sock_udp, packet, client_conf)
+    pdu_udp.send(sock_udp, packet, config.client['Server'], config.client['Srv_UDP'])
 
-def subs_request(client_conf):
+def subs_request():
     # Set client status
     config.set_status('WAIT_ACK_SUBS')
 
@@ -76,7 +131,7 @@ def subs_request(client_conf):
                 break # Exit subscription phase if SUBS_ACK is received
             else:
                 # Send packet
-                send_subscription_packet(client_conf)
+                send_subscription_packet()
                 # Increase sleep time
                 if sleep < 3 * 1 and packets_sent >= 3:
                     sleep += 1
@@ -87,14 +142,14 @@ def subs_request(client_conf):
         break  # Exit subscription phase if data is received
     else:
         # If subscription attempts ended print error message
-        logs.error(f"Could not establish connection with server {client_conf.Server}", True)
+        logs.error(f"Could not establish connection with server {config.client['Server']}", True)
 
 # Initialization function
 def _init():
-    # Create global variables
+    # Create global variables for sockets
     global sock_udp, sock_tcp
 
-    #Get User Arguments
+    ## Get User Arguments
     parser = argparse.ArgumentParser(usage="client.py [-h] [-c client_config.cfg] [-d]")
     # Define Optional arguments
     parser.add_argument('-c', type=str, help="Path to config file", default="client.cfg", metavar="config file")
@@ -116,12 +171,12 @@ def main():
     global stop_subs_flag
     stop_subs_flag = threading.Event()
     # Start packet reception thread
-    recv_thread = threading.Thread(target=recv_data, args=(sock_udp, stop_subs_flag))
+    recv_thread = threading.Thread(target=udp_recv, args=(sock_udp, stop_subs_flag))
     recv_thread.daemon = True
     recv_thread.start()
 
     # Start Subscription Request
-    subs_request(config.client)
+    subs_request()
 
 # Init call
 if __name__ == "__main__":
