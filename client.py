@@ -4,7 +4,7 @@ Description: A python program that siumaltes the interaction of a client with di
              It uses diferent modules located in the methods folder to simplify the readability of this main program.
 Author: Eric Bitria Ribes
 Version: 0.1
-Last Modified: 2024-2-29
+Last Modified: 2024-3-1
 """
 # Args
 import argparse
@@ -58,6 +58,10 @@ def process_packet(packet,addr):
     # Set Flags
     stop_subs_flag.set()
 
+######################
+# Subscription Phase #
+######################
+    
 def process_subs_ack(packet,addr):
     """
     Processes a [SUBS_ACK] packet and if the client status is correct 
@@ -95,13 +99,6 @@ def process_subs_ack(packet,addr):
         spacket = pdu_udp.to_bytes(pdu_udp.Packet(packet_type,mac,num,data))
 
         pdu_udp.send(sock_udp,spacket,config.client['Server'],udp)
-        
-
-
-
-######################
-# Subscription Phase #
-######################
 
 def send_subscription_packet():
     # Create SUBS_REQ packet

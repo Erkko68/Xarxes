@@ -91,8 +91,6 @@ def init_client(file_path):
                     # Cast server port to int
                     value = int(value)
                     if not 0 <= int(value) <= 65535: logs.error(f"Invalid {key} Port, must be between 0 and 65535.",True)
-                elif key == 'Server':
-                    if not re.match(r'^(?:25[0-5]|2[0-4]\d|[01]?\d{1,2})(?:\.(?:25[0-5]|2[0-4]\d|[01]?\d{1,2})){3}$', value): logs.error("Invalid Server IP.",True)
                 else:
                     continue # Ignore any other configuration found
                 client[key] = value
