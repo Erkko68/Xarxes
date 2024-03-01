@@ -2,6 +2,8 @@
 
 # methods/encode.py
 
+import struct
+
 """
 Module Methods: Subfolder that contains auxiliar methods for the main client.py program.
 Description: Basic methods to convert strings to bytes and bytes to strings.
@@ -21,18 +23,21 @@ def string_to_bytes(s, length):
     Returns:
     - byte array: The string encoded in a byte array.
     """
-    return s[:length].ljust(length, '\0').encode('utf-8')
+    return struct.pack(f'{length}s',s[:length].encode('utf-8'))
 
-def bytes_to_string(byte, offset, length):
+def bytes_to_string(buffer, length):
     """
-    A function to decode a byte array into a string.
+    A function to decode a byte array into a string until the null character is encountered.
 
     Parameters:
-    - param (byte): The byte array.
-    - param (offset): Number of positions moved from the start of the array.
-    - param (lenght): The lenght of the byte array.
+    - param (buffer): The byte array.
+    - param (length): The length of the byte array.
 
     Returns:
-    - String: The string decoded from the byte array.
+    - String: The string decoded from the byte array until the null character.
     """
-    return byte[offset:offset + length].decode('utf-8').rstrip('\0')
+    null_index = buffer.find(b'\x00')  # Find the index of the first null character
+    if null_index != -1 and null_index < length:
+        length = null_index  # Adjust length to decode until the null character
+    return struct.unpack(f'{length}s', buffer[:length])[0].decode()
+

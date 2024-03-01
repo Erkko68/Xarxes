@@ -91,7 +91,7 @@ def to_bytes(packet):
 
 def from_bytes(buffer):
     """
-    Function that converts a pdu_udp packet to a byte array
+    Function that converts a byte array to a pdu_udp packet.
 
     Parameters:
     - param (buffer): A byte array representing the packet.
@@ -102,10 +102,10 @@ def from_bytes(buffer):
     # Get type
     packet_type = buffer[0]
     # Convert the MAC address bytes to a MAC address string
-    mac = encode.bytes_to_string(buffer, 1, 13)
+    mac = encode.bytes_to_string(buffer[1:], 13)
     # Ensure the rand number and data string are the correct length
-    rand = encode.bytes_to_string(buffer, 14, 9)
-    data = encode.bytes_to_string(buffer, 23, 80)
+    rand = encode.bytes_to_string(buffer[14:], 9)
+    data = encode.bytes_to_string(buffer[23:], 80)
 
     return Packet(packet_type,mac,rand,data)
 

@@ -16,6 +16,7 @@ import time
 import threading
 
 ## Import auxiliar modules
+from methods import encode
 from methods import logs
 from methods import pdu_udp
 from methods import config
