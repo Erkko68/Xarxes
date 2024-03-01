@@ -39,5 +39,5 @@ def bytes_to_string(buffer, length):
     null_index = buffer.find(b'\x00')  # Find the index of the first null character
     if null_index != -1 and null_index < length:
         length = null_index  # Adjust length to decode until the null character
-    return struct.unpack(f'{length}s', buffer[:length])[0].decode()
+    return struct.unpack(f'{length}s', buffer[:length])[0].decode('utf-8')
 

@@ -52,12 +52,24 @@ def process_packet(packet,addr):
     if ptype == 0x00: # CLIENT SHOULD NOT RECEIVE THIS ONE
         logs.info("Received unexpected [SUBS_REQ] packet. Ignoring...")
     elif ptype == 0x01:
+        logs.info("Received [SUBS_ACK] packet.")
         process_subs_ack(packet,addr)
     elif ptype == 0x02:
-        print("2")
-
-    # Set Flags
-    stop_subs_flag.set()
+        print("Received [SUBS_REJ] packet.")
+        # Set Flags
+        stop_subs_flag.set()
+    elif ptype == 0x03:
+        print("Received [SUBS_INFO] packet.")
+        # Set Flags
+        stop_subs_flag.set()
+    elif ptype == 0x04:
+        print("Received [INFO_ACK] packet.")
+        # Set Flags
+        stop_subs_flag.set()
+    elif ptype == 0x05:
+        print("Received [SUBS_NACK] packet.")
+        # Set Flags
+        stop_subs_flag.set()
 
 ######################
 # Subscription Phase #
@@ -86,10 +98,7 @@ def process_subs_ack(packet,addr):
         server_config = [packet.mac,addr[0],packet.rnd]
         config.client['Server_Config'] = server_config
 
-        # GET UDP Port From Packet
-        udp = 11001
-
-        # Send [SUBS_INFO] packet
+        ## Send [SUBS_INFO] packet
         packet_type = pdu_udp.packet_type['SUBS_INFO']
         mac = config.client['MAC']
         num = config.client['Server_Config'][2]
@@ -99,6 +108,10 @@ def process_subs_ack(packet,addr):
         # Create and encode packet
         spacket = pdu_udp.to_bytes(pdu_udp.Packet(packet_type,mac,num,data))
 
+        # Get UDP Port From Packet
+        udp = int(packet.data)
+
+        # Send packet
         pdu_udp.send(sock_udp,spacket,config.client['Server'],udp)
 
 def send_subscription_packet():
