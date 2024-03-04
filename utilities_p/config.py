@@ -1,17 +1,17 @@
 #!/usr/bin/env python
 
-# methods/config.py
+# utilities_p/config.py
 
 """
-Module Methods: Subfolder that contains auxiliar methods for the main client.py program.
-Description: Used to contain client-related configurations, and methods to initialize and modify this data.
+Module utilities_p: Subfolder that contains auxiliar utilties for the main client.py program.
+Description: Used to contain client-related configurations, and utilities to initialize and modify this data.
 Author: Eric Bitria Ribes
 Version: 0.2
 Last Modified: 2024-2-29
 """
 
 import re
-from methods import logs
+from utilities_p import logs
 
 
 status = {

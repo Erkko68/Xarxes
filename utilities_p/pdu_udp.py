@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# methods/logs.py
+# utilities_p/logs.py
 
 """
 Module Methods: Subfolder that contains auxiliar methods for the main client.py program.
@@ -11,8 +11,8 @@ Last Modified: 2024-3-1
 """
 
 # Import codification module
-from methods import encode
-from methods import logs
+from utilities_p import encode
+from utilities_p import logs
 
 
 packet_type = {

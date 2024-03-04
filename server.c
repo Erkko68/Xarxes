@@ -10,8 +10,7 @@
 
 #include "utilities/pduudp.h"
 #include "utilities/logs.h"
-
-#define PDUUDP 103
+#include "utilities/clientsDB.h"
 
 /*Define struct for server config*/
 struct server{
@@ -23,21 +22,9 @@ struct server{
 
 /*Define struct for controllers*/
 struct controllers{
-    char name[9];
+    char name[8];
     char mac[13];
 };
-
-/*Define struct for clients*/
-struct client{
-    unsigned char status;
-    char name[9];
-    char situation[13];
-    char elements[10][8];
-    char mac[13];
-    unsigned short tcp; /*Range 0-65535*/
-    unsigned short udp; /*Range 0-65535*/
-};
-
 
 /**
  * @brief Returns a struct with the server configuration.
@@ -132,27 +119,19 @@ void *subsReq(void *arg) {
     int sockfd = *((int *)arg);
     /* Init client info */
     struct sockaddr_in client_addr;
-    socklen_t client_len = sizeof(client_addr);
-    /* Define buffer size */
-    char buffer[PDUUDP];
+    struct Packet original_pdu;
+    char buffer[103];
 
-    while (1) {
-        int bytes_received = recvfrom(sockfd, buffer, sizeof(buffer), 0,
-                                     (struct sockaddr *)&client_addr, &client_len);
-        struct Packet original_pdu;
-        if (bytes_received < 0) {
-            perror("recvfrom failed");
-            exit(EXIT_FAILURE);
-        }
-
-        /* Print received package information */
-        bytesToUdp(buffer,&original_pdu);
+    while (true) {
+        
+        original_pdu = recvUdp(sockfd,&client_addr);
         
         printf("Original Struct:\nType: %d\nMAC: %s\nRnd: %s\nData: %s\n\n",
            original_pdu.type, original_pdu.mac, original_pdu.rnd, original_pdu.data);
 
-        /* Echo the message back to the client */ 
-        sendUdp(sockfd,buffer,(const struct sockaddr *)&client_addr);
+        udpToBytes(&original_pdu,buffer);
+
+        sendUdp(sockfd,buffer,&client_addr);
         
     }
 }
@@ -197,7 +176,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    /* Join subscription to main thread when finished (Using SIGKILL) */
+    /* Join subscription to main thread when finished */
     pthread_join(subs_thread, NULL);
 
     /*Close the socket*/

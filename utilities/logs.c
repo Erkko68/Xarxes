@@ -46,7 +46,7 @@ char* get_current_time() {
  */
 void lerror(const char *str, bool override){
     if(DEBUG || override){
-        printf("[%s][Error] %s\n", get_current_time(), str);
+        printf("[%s] [Error] %s\n", get_current_time(), str);
     }
     exit(-1);
 }
@@ -59,7 +59,7 @@ void lerror(const char *str, bool override){
  */
 void lwarning(const char *str, bool override){
     if(DEBUG || override){
-        printf("[%s][Warning] %s\n", get_current_time(), str);
+        printf("[%s] [Warning] %s\n", get_current_time(), str);
     }
 }
 
@@ -71,7 +71,7 @@ void lwarning(const char *str, bool override){
  */
 void linfo(const char *str, bool override){
     if(DEBUG || override){
-        printf("[%s][Info] %s\n", get_current_time(), str);
+        printf("[%s] [Info] %s\n", get_current_time(), str);
     }
 }
 

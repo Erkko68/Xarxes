@@ -2,7 +2,7 @@
 
 """
 Description: A python program that siumaltes the interaction of a client with diferent sensors and sends it to a server.
-             It uses diferent modules located in the methods folder to simplify the readability of this main program.
+             It uses diferent modules located in the utilities_p folder to simplify the readability of this main program.
 Author: Eric Bitria Ribes
 Version: 0.1
 Last Modified: 2024-3-1
@@ -18,9 +18,9 @@ import time
 import threading
 
 ## Import auxiliar modules
-from methods import logs
-from methods import pdu_udp
-from methods import config
+from utilities_p import logs
+from utilities_p import pdu_udp
+from utilities_p import config
 
 
 def stop_receiving(stop_flag):

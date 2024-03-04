@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 
-# methods/logs.py
+# utilities_p/logs.py
 
 """
-Module Methods: Subfolder that contains auxiliar methods for the main client.py program.
+Module utilities_p: Subfolder that contains auxiliar methods for the main client.py program.
 Description: Basic methods to print info, warning, and error messages for the main client.py program.
 Author: Eric Bitria Ribes
 Version: 0.2
 Last Modified: 2024-2-29
 """
+
+import datetime  # Import datetime module
 
 COLORS = {'red': '\033[91m', 'yellow': '\033[93m', 'blue': '\033[94m', 'end': '\033[0m'}
 
@@ -27,6 +29,13 @@ def _colored_message(text, color):
     """
     return f"{COLORS[color]}{text}{COLORS['end']}"
 
+def _get_timestamp():
+    """
+    Function to get the current timestamp in the format [HH:MM:SS].
+    """
+    now = datetime.datetime.now()
+    return now.strftime("[%H:%M:%S]")
+
 def warning(message, override=False):
     """
     Function to print warning messages
@@ -36,7 +45,7 @@ def warning(message, override=False):
     - param (override): If set to True it will always display the message
                         regardles of the debug mode being set.
     """
-    msg = _colored_message("[WARNING]", 'yellow') + " " + message
+    msg = _get_timestamp() + " " + _colored_message("[WARNING]", 'yellow') + " " + message
     if debug or override:
         print(msg)
 
@@ -50,7 +59,7 @@ def info(message, override=False):
     - param (override): If set to True it will always display the message
                         regardles of the debug mode being set.
     """
-    msg = _colored_message("[INFO]", 'blue') + " " + message
+    msg = _get_timestamp() + " " + _colored_message("[INFO]", 'blue') + " " + message
     if debug or override:
         print(msg)
 
@@ -63,7 +72,7 @@ def error(message, override=False):
     - param (override): If set to True it will always display the message
                         regardles of the debug mode being set.
     """
-    msg = _colored_message("[ERROR]", 'red') + " " + message
+    msg = _get_timestamp() + " " + _colored_message("[ERROR]", 'red') + " " + message
     if debug or override:
         print(msg)
     exit(-1)
