@@ -139,4 +139,3 @@ def send(udp_sockfd, packet, server, port):
 
     except Exception as e:
         logs.error(f'Unexpected error when sending {logs.get_key(packet[0], packet_type)}: {e}',True)
-    

@@ -118,7 +118,14 @@ def _process_elements(elements):
 
 def set_status(name):
     """
-    Function to set the client status
+    Function to set the client status:
+        'DISCONNECTED': 0xa0,
+        'NOT_SUBSCRIBED': 0xa1,
+        'WAIT_ACK_SUBS': 0xa2,
+        'WAIT_INFO': 0xa3,
+        'WAIT_ACK_INFO': 0xa4,
+        'SUBSCRIBED': 0xa5,
+        'SEND_HELLO': 0xa6
 
     Parameters:
     - param (name): The name of the client status to set.

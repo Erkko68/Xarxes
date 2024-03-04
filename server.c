@@ -8,33 +8,10 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
+#include "utilities/pduudp.h"
+#include "utilities/logs.h"
+
 #define PDUUDP 103
-
-/*Init debug mode setting*/
-bool DEBUG = false;
-
-/**
- * @brief Functions to show log messages
- *
- * @param str The string to print
- * @param bool If set to true this message will ignore debug mode and always display the msg.
- */
-void lerror(const char *str, bool override){
-    if(DEBUG || override){
-        printf("[Error] %s\n",str);
-    }
-    exit(-1);
-}
-void lwarning(const char *str, bool override){
-    if(DEBUG || override){
-        printf("[Warning] %s\n",str);
-    }
-}
-void linfo(const char *str, bool override){
-    if(DEBUG || override){
-        printf("[Info] %s\n",str);
-    }
-}
 
 /*Define struct for server config*/
 struct server{
@@ -60,47 +37,6 @@ struct client{
     unsigned short tcp; /*Range 0-65535*/
     unsigned short udp; /*Range 0-65535*/
 };
-
-/*Define struct for pdu_udp packets*/
-struct pdu_udp{
-    unsigned char type;
-    char mac[13];
-    char rnd[9];
-    char data[80];
-};
-
-/**
- * @brief Converts a pdu_udp struct packet into a byte array 
- * 
- * @param pdu The struct representing the pdu_udp packet
- * @param bytes the byte array to store the encoded struct
- */
-void udpToBytes(const struct pdu_udp *pdu, char *bytes) {
-    int offset = 0;
-    bytes[offset] = pdu->type;
-    offset += sizeof(pdu->type);
-    memcpy(bytes + offset, pdu->mac, sizeof(pdu->mac));
-    offset += sizeof(pdu->mac);
-    memcpy(bytes + offset, pdu->rnd, sizeof(pdu->rnd));
-    offset += sizeof(pdu->rnd);
-    memcpy(bytes + offset, pdu->data, sizeof(pdu->data));
-}
-/**
- * @brief Converts a byte array into pdu_udp packet format
- * 
- * @param bytes The byte array to take the data
- * @param pdu The pdu_udp packet struct to store decoded data
- */
-void bytesToUdp(const char *bytes, struct pdu_udp *pdu) {
-    int offset = 0;
-    pdu->type = bytes[offset];
-    offset += sizeof(pdu->type);
-    memcpy(pdu->mac, bytes + offset, sizeof(pdu->mac));
-    offset += sizeof(pdu->mac);
-    memcpy(pdu->rnd, bytes + offset, sizeof(pdu->rnd));
-    offset += sizeof(pdu->rnd);
-    memcpy(pdu->data, bytes + offset, sizeof(pdu->data));
-}
 
 
 /**
@@ -203,7 +139,7 @@ void *subsReq(void *arg) {
     while (1) {
         int bytes_received = recvfrom(sockfd, buffer, sizeof(buffer), 0,
                                      (struct sockaddr *)&client_addr, &client_len);
-        struct pdu_udp original_pdu;
+        struct Packet original_pdu;
         if (bytes_received < 0) {
             perror("recvfrom failed");
             exit(EXIT_FAILURE);
@@ -216,12 +152,7 @@ void *subsReq(void *arg) {
            original_pdu.type, original_pdu.mac, original_pdu.rnd, original_pdu.data);
 
         /* Echo the message back to the client */ 
-        
-        if (sendto(sockfd, buffer, sizeof(buffer), 0, 
-                   (const struct sockaddr *)&client_addr, client_len) < 0) {
-            perror("sendto failed");
-            exit(EXIT_FAILURE);
-        }
+        sendUdp(sockfd,buffer,(const struct sockaddr *)&client_addr);
         
     }
 }
@@ -239,6 +170,8 @@ int main(int argc, char *argv[]) {
 
     /*Initialise server configuration struct*/
     serv_conf = serverConfig(config_file);
+
+    lwarning("hi",false);
 
     /* Create socket file descriptor */
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {

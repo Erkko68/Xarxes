@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 """
 Description: A python program that siumaltes the interaction of a client with diferent sensors and sends it to a server.
              It uses diferent modules located in the methods folder to simplify the readability of this main program.
@@ -6,6 +7,7 @@ Author: Eric Bitria Ribes
 Version: 0.1
 Last Modified: 2024-3-1
 """
+
 # Args
 import argparse
 # Sockets
@@ -16,7 +18,6 @@ import time
 import threading
 
 ## Import auxiliar modules
-from methods import encode
 from methods import logs
 from methods import pdu_udp
 from methods import config
@@ -74,7 +75,33 @@ def process_packet(packet,addr):
 ######################
 # Subscription Phase #
 ######################
-    
+        
+def send_subs_req(server,port):
+    """
+    Sends a [SUBS_REQ] to the server and port with UDP protocol.
+
+    PACKET CONTENTS:
+
+    | [SUBS_REQ] | MAC | 00000000 | DATA: CLIENT NAME + SITUATION |
+
+    Parameters:
+    - param (server): The server adress to send the packet.
+    - param (port): The UDP Port of the server.
+    """
+    # Create SUBS_REQ packet
+    packet_type = pdu_udp.packet_type['SUBS_REQ']
+    # Set client MAC
+    mac = config.client['MAC']
+    num = '00000000'
+    # Get client data
+    data = config.client['Name']+ ',' + config.client['Situation']
+
+    # Create and encode PDU_UDP packet
+    packet = pdu_udp.to_bytes(pdu_udp.Packet(packet_type,mac,num,data))
+
+    # Send packet
+    pdu_udp.send(sock_udp, packet, server, port)
+
 def process_subs_ack(packet,addr):
     """
     Processes a [SUBS_ACK] packet and if the client status is correct 
@@ -114,41 +141,28 @@ def process_subs_ack(packet,addr):
         # Send packet
         pdu_udp.send(sock_udp,spacket,config.client['Server'],udp)
 
-def send_subscription_packet():
-    # Create SUBS_REQ packet
-    packet_type = pdu_udp.packet_type['SUBS_REQ']
-    # Set client MAC
-    mac = config.client['MAC']
-    num = '00000000'
-    # Get client data
-    data = config.client['Name']+ ',' + config.client['Situation']
-    # Create PDU_UDP packet
-    
-    packet = pdu_udp.to_bytes(pdu_udp.Packet(packet_type,mac,num,data))
-
-    # Send packet
-    pdu_udp.send(sock_udp, packet, config.client['Server'], config.client['Srv_UDP'])
-
-def subs_request():
-    # Set client status
-    config.set_status('WAIT_ACK_SUBS')
-
-    for _ in range(3):
-        # Print subscription request
-        logs.info(f'Starting subscription request. [{_ + 1}/3]', True)
-        sleep = 1
-        for packets_sent in range(7):
-            if stop_subs_flag.is_set():  # SUBS_ACK Received
-                break # Exit subscription phase if SUBS_ACK is received
-            else:
-                # Send packet
-                send_subscription_packet()
-                # Increase sleep time
-                if sleep < 3 * 1 and packets_sent >= 3:
-                    sleep += 1
-                time.sleep(sleep)
+def subs_process():
+    t = 1; u = 2; n = 7; o = 3; p = 3; q = 3
+    for _ in range(o):
+        # Print subscription request msg
+        logs.info(f'Starting subscription request. [{_ + 1}/{o}]', True)
+        sleep = t
+        for packets_sent in range(n):
+            # Send packet
+            send_subs_req(config.client['Server'], config.client['Srv_UDP'])
+            # Set client status
+            config.set_status('WAIT_ACK_SUBS')
+            # Wait "sleep" seconds or until a SUBS_ACK packet is received
+            if stop_subs_flag.wait(sleep):
+                break     
+            # Increase sleep time if not response packet is received
+            if sleep <= q * t and packets_sent+1 >= p:
+                sleep += t
+            
         else:  # If we don't receive response from the server, (break not executed) wait and continue new subscription request.
-            time.sleep(2)
+            time.sleep(u)
+            # Set client status
+            config.set_status('NOT_SUBSCRIBED')
             continue
         break  # Exit subscription phase if data is received
     else:
@@ -187,7 +201,7 @@ def main():
     recv_thread.start()
 
     # Start Subscription Request
-    subs_request()
+    subs_process()
 
 # Init call
 if __name__ == "__main__":
