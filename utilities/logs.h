@@ -42,4 +42,10 @@ void lwarning(const char *str, bool override);
  */
 void linfo(const char *str, bool override);
 
+/**
+ * @brief Enables debug mode when called
+ * 
+ */
+void enableDebug();
+
 #endif /* LOGS_H */

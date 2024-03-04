@@ -75,5 +75,10 @@ void linfo(const char *str, bool override){
     }
 }
 
-
-    
+/**
+ * @brief Enables debug mode when called
+ * 
+ */
+void enableDebug(){
+    DEBUG = true;
+}

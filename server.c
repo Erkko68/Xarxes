@@ -10,7 +10,7 @@
 
 #include "utilities/pduudp.h"
 #include "utilities/logs.h"
-#include "utilities/clientsDB.h"
+#include "utilities/controllers.h"
 
 /*Define struct for server config*/
 struct server{
@@ -100,7 +100,7 @@ void args(int argc, char *argv[], char **config_file, char **controllers) {
             }
         } else if (strcmp(argv[i], "-d") == 0) {
             /* If -d flag is found, set debug mode*/
-            DEBUG = true;
+            enableDebug();
         } else {
             lerror("Invalid argument found.",true);
         }

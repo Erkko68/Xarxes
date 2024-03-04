@@ -11,9 +11,9 @@
  */
 
 #include <arpa/inet.h>
+#include <string.h>
 #include "pduudp.h"
 #include "logs.h"
-#include <string.h>
 
 #define PDUUDP 103
 
