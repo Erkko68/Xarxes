@@ -13,17 +13,12 @@
 #include "utilities/controllers.h"
 
 /*Define struct for server config*/
-struct server{
+struct Server{
     char name[9];
     char mac[13];
     unsigned short tcp; /*Range 0-65535*/
     unsigned short udp; /*Range 0-65535*/
-};
-
-/*Define struct for controllers*/
-struct controllers{
-    char name[8];
-    char mac[13];
+    struct sockaddr_in address;
 };
 
 /**
@@ -32,9 +27,9 @@ struct controllers{
  * @param filename The name of the file to read the configuration.
  * @return struct server 
  */
-struct server serverConfig(const char *filename) {
+struct Server serverConfig(const char *filename) {
     /*Create new struct*/
-    struct server srv;
+    struct Server srv;
     /*Initialise buffer*/
     char buffer[20];
 
@@ -60,6 +55,11 @@ struct server serverConfig(const char *filename) {
             srv.udp = atoi(value);
         }
     }
+    /* Configure server address */
+    srv.address.sin_family = AF_INET; /* Set IPv4 */
+    srv.address.sin_addr.s_addr = htonl(INADDR_ANY); /* Accept any incoming address */
+    srv.address.sin_port = htons(srv.udp); /* Port number */
+
     /*close file descriptor*/ 
     fclose(file);
     /*return new struct*/ 
@@ -136,59 +136,57 @@ void *subsReq(void *arg) {
     }
 }
 
-void test(){
+void loadControllers(struct Controller *controllers, const char* controllers_file){
     int i = 0;
-    struct Controller *controlers = NULL;
-    int numControllers = initialiseControllers(&controlers, "controllers.dat");
+    int numControllers = initialiseControllers(&controllers, controllers_file);
     if (numControllers < 0) {
         fprintf(stderr, "Error reading controllers from file.\n");
     }
 
     printf("Read %d controllers:\n", numControllers);
     for (; i < numControllers; i++) {
-        printf("Controller %d: Name: %s, MAC: %s\n", i + 1, controlers[i].name, controlers[i].mac);
+        printf("Controller %d: Name: %s, MAC: %s\n", i + 1, controllers[i].name, controllers[i].mac);
     }
 
-    free(controlers);
+    free(controllers);
 }
 
 int main(int argc, char *argv[]) {
     int sockfd;
     pthread_t subs_thread;
-    struct server serv_conf;
-    struct sockaddr_in server_addr;
+    struct Server serv_conf;
+    struct Controller *controllers = NULL;
     
     /*Get config and controllers file name*/
     char *config_file;
-    char *controllers;
-    args(argc, argv, &config_file, &controllers);
+    char *controllers_file;
+    args(argc, argv, &config_file, &controllers_file);
 
     /*Initialise server configuration struct*/
     serv_conf = serverConfig(config_file);
+    /* Load allowed controllers in memory */
+    loadControllers(controllers,controllers_file);
 
     /* Create socket file descriptor */
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         perror("socket creation failed");
     }
 
-    /* Configure server address */
-    server_addr.sin_family = AF_INET; /* Set IPv4 */
-    server_addr.sin_addr.s_addr = htonl(INADDR_ANY); /* Accept any incoming address */
-    server_addr.sin_port = htons(serv_conf.udp); /* Port number */
-
     /* Bind socket to the specified port */
-    if (bind(sockfd, (const struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+    if (bind(sockfd, (const struct sockaddr *)&serv_conf.address, sizeof(serv_conf.address)) < 0) {
         perror("bind failed");
         exit(EXIT_FAILURE);
     }
-
-    test();
 
     /* Create a thread to handle the subscription request proces */
     if (pthread_create(&subs_thread, NULL,subsReq, &sockfd) != 0) {
         perror("pthread_create failed");
         exit(EXIT_FAILURE);
     }
+
+
+
+
 
     /* Join subscription to main thread when finished */
     pthread_join(subs_thread, NULL);
