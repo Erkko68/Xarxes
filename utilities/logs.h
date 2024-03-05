@@ -23,24 +23,27 @@ extern bool DEBUG;
  *
  * @param str The string to print
  * @param override If set to true this message will ignore debug mode and always display the msg.
+ * @param ... Additional arguments for formatted output.
  */
-void lerror(const char *str, bool override);
+void lerror(const char *str, bool override, ...);
 
 /**
  * @brief Function to show warning messages.
  *
  * @param str The string to print
  * @param override If set to true this message will ignore debug mode and always display the msg.
+ * @param ... Additional arguments for formatted output.
  */
-void lwarning(const char *str, bool override);
+void lwarning(const char *str, bool override, ...);
 
 /**
  * @brief Function to show info messages.
  *
  * @param str The string to print
  * @param override If set to true this message will ignore debug mode and always display the msg.
+ * @param ... Additional arguments for formatted output.
  */
-void linfo(const char *str, bool override);
+void linfo(const char *str, bool override, ...);
 
 /**
  * @brief Enables debug mode when called

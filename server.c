@@ -136,6 +136,22 @@ void *subsReq(void *arg) {
     }
 }
 
+void test(){
+    int i = 0;
+    struct Controller *controlers = NULL;
+    int numControllers = initialiseControllers(&controlers, "controllers.dat");
+    if (numControllers < 0) {
+        fprintf(stderr, "Error reading controllers from file.\n");
+    }
+
+    printf("Read %d controllers:\n", numControllers);
+    for (; i < numControllers; i++) {
+        printf("Controller %d: Name: %s, MAC: %s\n", i + 1, controlers[i].name, controlers[i].mac);
+    }
+
+    free(controlers);
+}
+
 int main(int argc, char *argv[]) {
     int sockfd;
     pthread_t subs_thread;
@@ -149,8 +165,6 @@ int main(int argc, char *argv[]) {
 
     /*Initialise server configuration struct*/
     serv_conf = serverConfig(config_file);
-
-    lwarning("hi",false);
 
     /* Create socket file descriptor */
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -168,7 +182,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    printf("Server listening on port 11001...\n");
+    test();
 
     /* Create a thread to handle the subscription request proces */
     if (pthread_create(&subs_thread, NULL,subsReq, &sockfd) != 0) {

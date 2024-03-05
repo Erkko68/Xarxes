@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <time.h>
+#include <stdarg.h>
 
 /*Init debug mode setting*/
 bool DEBUG = false;
@@ -43,10 +44,16 @@ char* get_current_time() {
  *
  * @param str The string to print
  * @param override If set to true this message will ignore debug mode and always display the msg.
+ * @param ... Additional arguments for formatted output.
  */
-void lerror(const char *str, bool override){
-    if(DEBUG || override){
-        printf("[%s] [Error] %s\n", get_current_time(), str);
+void lerror(const char *str, bool override, ...) {
+    if (DEBUG || override) {
+        va_list args;
+        va_start(args, override);
+        printf("[%s] [Error] ", get_current_time());
+        vprintf(str, args);
+        printf("\n");
+        va_end(args);
     }
     exit(-1);
 }
@@ -56,10 +63,16 @@ void lerror(const char *str, bool override){
  *
  * @param str The string to print
  * @param override If set to true this message will ignore debug mode and always display the msg.
+ * @param ... Additional arguments for formatted output.
  */
-void lwarning(const char *str, bool override){
-    if(DEBUG || override){
-        printf("[%s] [Warning] %s\n", get_current_time(), str);
+void lwarning(const char *str, bool override, ...) {
+    if (DEBUG || override) {
+        va_list args;
+        va_start(args, override);
+        printf("[%s] [Warning] ", get_current_time());
+        vprintf(str, args);
+        printf("\n");
+        va_end(args);
     }
 }
 
@@ -68,10 +81,16 @@ void lwarning(const char *str, bool override){
  *
  * @param str The string to print
  * @param override If set to true this message will ignore debug mode and always display the msg.
+ * @param ... Additional arguments for formatted output.
  */
-void linfo(const char *str, bool override){
-    if(DEBUG || override){
-        printf("[%s] [Info] %s\n", get_current_time(), str);
+void linfo(const char *str, bool override, ...) {
+    if (DEBUG || override) {
+        va_list args;
+        va_start(args, override);
+        printf("[%s] [Info] ", get_current_time());
+        vprintf(str, args);
+        printf("\n");
+        va_end(args);
     }
 }
 
