@@ -10,7 +10,6 @@
  * @date 2024-3-4
  */
 
-
 #include "logs.h"
 
 #include <stdio.h>
@@ -97,7 +96,6 @@ void linfo(const char *str, bool override, ...) {
 
 /**
  * @brief Enables debug mode when called
- * 
  */
 void enableDebug(){
     DEBUG = true;

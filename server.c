@@ -20,35 +20,6 @@ struct ThreadArgs{
     struct Packet packet;
 };
 
-/**
- * @brief A function executed by the subscription proces thread, wich handles the
- *        proces of subscription for the incoming clients.
- * 
- * @param arg The socket file descriptor
- * @return void* 
- */
-void *subsReq(void *arg) {
-    /* Get args */
-    struct ThreadArgs ar = *((struct ThreadArgs*)arg);
-    /* Init client info */
-    struct sockaddr_in client_addr;
-    struct Packet original_pdu;
-    char buffer[103];
-
-    while (true) {
-        
-        original_pdu = recvUdp(ar.socket,&client_addr);
-        
-        printf("Original Struct:\nType: %d\nMAC: %s\nRnd: %s\nData: %s\n\n",
-           original_pdu.type, original_pdu.mac, original_pdu.rnd, original_pdu.data);
-
-        udpToBytes(&original_pdu,buffer);
-
-        sendUdp(ar.socket,buffer,&client_addr);
-        
-    }
-}
-
 int main(int argc, char *argv[]) {
     /*Create Ints for sockets file descriptors*/
     int tcp_socket, udp_socket, max_fd;
@@ -95,8 +66,9 @@ int main(int argc, char *argv[]) {
     /* Load allowed controllers in memory */
     numControllers = initialiseControllers(&controllers, controllers_file);
 
-    while (1) {
+    while (1+1!=3) {
         struct Packet udp_packet;
+        struct Controller new_controller;
 
         /* Init file descriptors macros */
         FD_ZERO(&readfds);
@@ -114,12 +86,19 @@ int main(int argc, char *argv[]) {
         if (FD_ISSET(udp_socket, &readfds)) {
             linfo("Received data in file descriptor UDP.",false);
             udp_packet = recvUdp(udp_socket,&serv_conf.udp_address);
-            if(isAllowed(udp_packet.mac,controllers,numControllers)==1){
-                printf("Allowed MAC: %s\n",udp_packet.mac);
-            }else{
-                printf("Not allowed\n");
-            }
+            new_controller = udpToController(udp_packet);
 
+            if(isAllowed(new_controller,controllers,numControllers) != -1){
+                printf("Allowed MAC: %s\n",udp_packet.mac);
+               
+            }else{
+                /* Reject Connection sending a SUBS_REJ packet*/
+                sendUdp(
+                    udp_socket,
+                    createPacket(SUBS_REJ,serv_conf.mac,"00000000","Client is not allowed."),
+                    &serv_conf.udp_address
+                );
+            }
         }
 
         /* Check if the TCP file descriptor has received data */   
@@ -132,14 +111,12 @@ int main(int argc, char *argv[]) {
                 lerror("Unexpected error while receiving TCP connection.",true);
             }
         }
-        
-
     }
 
     /*Mem dealloc the controllers*/
     free(controllers);
 
-    /*Close the socket*/
+    /*Close the socket file descriptors*/
     close(udp_socket);
     close(tcp_socket);
 

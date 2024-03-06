@@ -16,6 +16,7 @@
 struct ControllerInfo{
     unsigned char status;
     char situation[13];
+    char rand[9];
     char elements[10][8];
     unsigned short tcp; /*Range 0-65535*/
     unsigned short udp; /*Range 0-65535*/
@@ -26,6 +27,26 @@ struct Controller{
     char name[9];
     char mac[13];
     struct ControllerInfo data;
+};
+
+/* 
+Define enum for all possible controller status: 
+- DISCONNECTED = 0xa0,
+- NOT_SUBSCRIBED = 0xa1,
+- WAIT_ACK_SUBS = 0xa2,
+- WAIT_INFO = 0xa3,
+- WAIT_ACK_INFO = 0xa4,
+- SUBSCRIBED = 0xa5,
+- SEND_HELLO = 0xa6
+*/
+enum Status{
+    DISCONNECTED = 0xa0,
+    NOT_SUBSCRIBED = 0xa1,
+    WAIT_ACK_SUBS = 0xa2,
+    WAIT_INFO = 0xa3,
+    WAIT_ACK_INFO = 0xa4,
+    SUBSCRIBED = 0xa5,
+    SEND_HELLO = 0xa6
 };
 
 /**
@@ -45,20 +66,20 @@ struct Controller{
 int initialiseControllers(struct Controller **controllers, const char *filename);
 
 /**
- * @brief Checks if a controller is allowed based on its MAC address.
+ * @brief Checks if a controller is allowed.
  *
- * This function checks if the given controller, specified by the MAC address, is allowed based on the
+ * This function checks if the given controller, specified by the MAC address and name, is allowed based on the
  * provided array of controllers. It iterates through the array of controllers and compares the MAC address
- * of each controller with the MAC address of the given controller. If a matching MAC address is found,
- * the controller is considered allowed and the function returns 1. Otherwise, the controller is considered
- * not allowed and the function returns 0.
+ * and name of each controller with the given controller. If a both values are equal, the controller is
+ * considered allowed and the function returns the index of the controller. Otherwise, the controller is considered
+ * not allowed and the function returns -1.
  * 
- * @param mac The controller mac to check.
+ * @param controller The controller struct to check.
  * @param controllers Pointer to the array of Controller structs containing allowed controllers.
  * @param numControllers The number of controllers in the array.
  * @return Returns 1 if the controller is allowed, 0 otherwise.
  */
-int isAllowed(char *mac,struct Controller *controllers, int numControllers);
+int isAllowed(const struct Controller controller,const struct Controller *controllers, int numControllers);
 
 
 #endif /*CONTROLLERS_H*/

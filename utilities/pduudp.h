@@ -6,7 +6,7 @@
  * into byte arrays and sending data over UDP sockets.
  * 
  * @author Eric Bitria Ribes
- * @version 0.1
+ * @version 0.2
  * @date 2024-3-4
  */
 
@@ -44,6 +44,23 @@ typedef enum {
 } UDPType;
 
 /**
+ * @brief Creates a Packet structure with the provided information.
+ *
+ * This function constructs and returns a Packet structure with the specified
+ * 'type', 'mac' address, 'rnd' data, and 'data' payload. It copies the provided
+ * 'mac', 'rnd', and 'data' strings into the corresponding fields of the Packet
+ * structure.
+ * 
+ * @param type The type of the packet.
+ * @param mac The MAC address string.
+ * @param rnd The random data string.
+ * @param data The data payload string.
+ * 
+ * @return Returns a Packet structure initialized with the provided information.
+ */
+struct Packet createPacket(const unsigned char type, const char *mac, const char *rnd, const char *data);
+
+/**
  * @brief Converts a Packet struct to a byte array.
  *
  * This function converts the provided Packet struct 'packet' into a byte array 'bytes'.
@@ -70,17 +87,17 @@ void udpToBytes(const struct Packet *packet, char *bytes);
 void bytesToUdp(const char *bytes, struct Packet *packet);
 
 /**
- * @brief Sends data over UDP socket to a specified address.
+ * @brief Sends data over a UDP socket to a specified address.
  *
- * This function sends the provided byte array 'data' over a UDP socket 
- * with the given 'socketFd' to the destination address specified in 
- * 'address' using the sendto() function.
+ * This function sends the data contained in the provided Packet structure 'packet'
+ * over a UDP socket represented by the file descriptor 'socketFd' to the destination
+ * address specified in the 'address' parameter using the sendto() function.
  * 
  * @param socketFd The file descriptor of the UDP socket.
- * @param data The byte array containing the data to be sent.
- * @param address The destination address where the data will be sent.
+ * @param packet The Packet structure containing the data to be sent.
+ * @param address Pointer to a sockaddr_in struct representing the destination address.
  */
-void sendUdp(const int socketFd, const char *data, const struct sockaddr_in *address);
+void sendUdp(const int socketFd, const struct Packet packet, const struct sockaddr_in *address);
 
 /**
  * @brief Receives a UDP packet from a specified socket.
@@ -97,5 +114,22 @@ void sendUdp(const int socketFd, const char *data, const struct sockaddr_in *add
  * @return Returns a Packet struct containing the received UDP packet.
  */
 struct Packet recvUdp(const int socketFd, struct sockaddr_in *address);
+
+/**
+ * @brief Converts a UDP packet into a Controller structure.
+ *
+ * This function takes a UDP packet represented by the 'packet' parameter and 
+ * converts it into a Controller structure. It copies the MAC address and random
+ * data from the packet into the corresponding fields of the Controller struct. 
+ * Then, it creates a copy of the packet data to prevent modification of the 
+ * original data by the string tokenizer. The function tokenizes the copied data 
+ * using commas as delimiters and stores the tokenized data into the Controller 
+ * struct.
+ * 
+ * @param packet The UDP packet to be converted.
+ * 
+ * @return Returns a Controller structure representing the converted UDP packet.
+ */
+struct Controller udpToController(const struct Packet packet);
 
 #endif /* PDUUDP_H */

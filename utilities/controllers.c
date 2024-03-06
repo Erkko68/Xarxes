@@ -1,3 +1,13 @@
+/**
+ * @file Controllers.h
+ * @brief Functions for saving, loading, and managing clients for the server.
+ * 
+ * 
+ * @author Eric Bitria Ribes
+ * @version 0.2
+ * @date 2024-3-6
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,6 +50,7 @@ int initialiseControllers(struct Controller **controllers, const char *filename)
             (*controllers)[numControllers].name[sizeof((*controllers)[numControllers].name) - 1] = '\0'; /*Ensure null terminator*/ 
             strncpy((*controllers)[numControllers].mac, mac, sizeof((*controllers)[numControllers].mac) - 1);
             (*controllers)[numControllers].mac[sizeof((*controllers)[numControllers].mac) - 1] = '\0'; /*Ensure null terminator*/ 
+            (*controllers)[numControllers].data.status=DISCONNECTED;
             /*Increase number of controllers*/
             numControllers++;
         } else {
@@ -52,25 +63,25 @@ int initialiseControllers(struct Controller **controllers, const char *filename)
 }
 
 /**
- * @brief Checks if a controller is allowed based on its MAC address.
+ * @brief Checks if a controller is allowed.
  *
- * This function checks if the given controller, specified by the MAC address, is allowed based on the
+ * This function checks if the given controller, specified by the MAC address and name, is allowed based on the
  * provided array of controllers. It iterates through the array of controllers and compares the MAC address
- * of each controller with the MAC address of the given controller. If a matching MAC address is found,
- * the controller is considered allowed and the function returns 1. Otherwise, the controller is considered
- * not allowed and the function returns 0.
+ * and name of each controller with the given controller. If a both values are equal, the controller is
+ * considered allowed and the function returns the index of the controller. Otherwise, the controller is considered
+ * not allowed and the function returns -1.
  * 
- * @param mac The controller mac struct to check.
+ * @param controller The controller struct to check.
  * @param controllers Pointer to the array of Controller structs containing allowed controllers.
  * @param numControllers The number of controllers in the array.
  * @return Returns 1 if the controller is allowed, 0 otherwise.
  */
-int isAllowed(char *mac,struct Controller *controllers, int numControllers){
+int isAllowed(const struct Controller controller,const struct Controller *controllers, int numControllers){
     int i;
     for(i=0;i<numControllers;i++){
-        if(strcmp(mac,controllers[i].mac)==0){
-            return 1;
+        if(strcmp(controller.mac,controllers[i].mac)==0 && strcmp(controller.name,controllers[i].name)==0){
+            return i;
         }
     }
-    return 0;
+    return -1;
 }
