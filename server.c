@@ -211,7 +211,9 @@ int main(int argc, char *argv[]) {
         }
         
         if (FD_ISSET(udp_socket, &readfds)) {
-            printf("Num: %d\n",numControllers);
+            linfo("Recevied data in file descriptor UDP.",false);
+            struct Packet pa = recvUdp(udp_socket,&serv_conf.udp_address);
+
         }
                 
         if (FD_ISSET(tcp_socket, &readfds)) {
