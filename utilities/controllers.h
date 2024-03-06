@@ -8,6 +8,9 @@
  * @date 2024-3-4
  */
 
+#ifndef CONTROLLERS_H
+#define CONTROLLERS_H
+
 /*Define struct for controller info*/
 struct ControllerInfo{
     unsigned char status;
@@ -36,6 +39,25 @@ struct Controller{
  * @param filename The name of the file to read controller data from.
  * @return Returns the total number of controllers read from the file on success.
  * 
- * @throw Error if no controller has been read, when memory allocation fails, or file descriptor fails.
+ * @throw Error if no controller has been read, when memory allocation fails, or when file descriptor fails.
  */
 int initialiseControllers(struct Controller **controllers, const char *filename);
+
+/**
+ * @brief Checks if a controller is allowed based on its MAC address.
+ *
+ * This function checks if the given controller, specified by the MAC address, is allowed based on the
+ * provided array of controllers. It iterates through the array of controllers and compares the MAC address
+ * of each controller with the MAC address of the given controller. If a matching MAC address is found,
+ * the controller is considered allowed and the function returns 1. Otherwise, the controller is considered
+ * not allowed and the function returns 0.
+ * 
+ * @param controller The controller struct to check.
+ * @param controllers Pointer to the array of Controller structs containing allowed controllers.
+ * @param numControllers The number of controllers in the array.
+ * @return Returns 1 if the controller is allowed, 0 otherwise.
+ */
+int isAllowed(struct Controller controller,struct Controller *controllers, int numControllers);
+
+
+#endif /*CONTROLLERS_H*/

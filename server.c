@@ -6,6 +6,7 @@
 #include <pthread.h>
 
 #include <unistd.h>
+#include <sys/select.h>
 #include <arpa/inet.h>
 
 #include "utilities/pduudp.h"
@@ -18,7 +19,15 @@ struct Server{
     char mac[13];
     unsigned short tcp; /*Range 0-65535*/
     unsigned short udp; /*Range 0-65535*/
-    struct sockaddr_in address;
+    struct sockaddr_in tcp_address;
+    struct sockaddr_in udp_address;
+};
+
+/*Struct for thread arguments*/
+struct ThreadArgs{
+    pthread_mutex_t mutex;
+    int socket;
+    struct Packet packet;
 };
 
 /**
@@ -55,10 +64,17 @@ struct Server serverConfig(const char *filename) {
             srv.udp = atoi(value);
         }
     }
-    /* Configure server address */
-    srv.address.sin_family = AF_INET; /* Set IPv4 */
-    srv.address.sin_addr.s_addr = htonl(INADDR_ANY); /* Accept any incoming address */
-    srv.address.sin_port = htons(srv.udp); /* Port number */
+    /* Configure UDP server address */
+    memset(&srv.udp_address, 0, sizeof(srv.udp_address));
+    srv.udp_address.sin_family = AF_INET; /* Set IPv4 */
+    srv.udp_address.sin_addr.s_addr = htonl(INADDR_ANY); /* Accept any incoming address */
+    srv.udp_address.sin_port = htons(srv.udp); /* Port number */
+
+    /* Configure TCP server address */
+    memset(&srv.tcp_address, 0, sizeof(srv.tcp_address));
+    srv.udp_address.sin_family = AF_INET; /* Set IPv4 */
+    srv.udp_address.sin_addr.s_addr = htonl(INADDR_ANY); /* Accept any incoming address */
+    srv.udp_address.sin_port = htons(srv.tcp); /* Port number */
 
     /*close file descriptor*/ 
     fclose(file);
@@ -115,8 +131,8 @@ void args(int argc, char *argv[], char **config_file, char **controllers) {
  * @return void* 
  */
 void *subsReq(void *arg) {
-    /* Get socket */
-    int sockfd = *((int *)arg);
+    /* Get args */
+    struct ThreadArgs ar = *((struct ThreadArgs*)arg);
     /* Init client info */
     struct sockaddr_in client_addr;
     struct Packet original_pdu;
@@ -124,38 +140,28 @@ void *subsReq(void *arg) {
 
     while (true) {
         
-        original_pdu = recvUdp(sockfd,&client_addr);
+        original_pdu = recvUdp(ar.socket,&client_addr);
         
         printf("Original Struct:\nType: %d\nMAC: %s\nRnd: %s\nData: %s\n\n",
            original_pdu.type, original_pdu.mac, original_pdu.rnd, original_pdu.data);
 
         udpToBytes(&original_pdu,buffer);
 
-        sendUdp(sockfd,buffer,&client_addr);
+        sendUdp(ar.socket,buffer,&client_addr);
         
     }
 }
 
-void loadControllers(struct Controller *controllers, const char* controllers_file){
-    int i = 0;
-    int numControllers = initialiseControllers(&controllers, controllers_file);
-    if (numControllers < 0) {
-        fprintf(stderr, "Error reading controllers from file.\n");
-    }
-
-    printf("Read %d controllers:\n", numControllers);
-    for (; i < numControllers; i++) {
-        printf("Controller %d: Name: %s, MAC: %s\n", i + 1, controllers[i].name, controllers[i].mac);
-    }
-
-    free(controllers);
-}
-
 int main(int argc, char *argv[]) {
-    int sockfd;
-    pthread_t subs_thread;
+    /*Create Ints for sockets file descriptors*/
+    int tcp_socket, udp_socket;
+    /*Struct for server configuration*/
     struct Server serv_conf;
+    /*Array of structs for allowed clients in memory*/
     struct Controller *controllers = NULL;
+
+    /*Threads*/
+    pthread_t subs_thread;
     
     /*Get config and controllers file name*/
     char *config_file;
@@ -164,35 +170,82 @@ int main(int argc, char *argv[]) {
 
     /*Initialise server configuration struct*/
     serv_conf = serverConfig(config_file);
+
+    /*Initialize Sockets*/
+
+        /* Create UDP socket file descriptor */
+        if ((tcp_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+            perror("Error creating TCP socket");
+            exit(EXIT_FAILURE);
+        }
+        /* Create UDP socket file descriptor */
+        if ((udp_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+            perror("socket creation failed");
+        }
+
+        /* Bind UDP socket */
+        if (bind(udp_socket, (const struct sockaddr *)&serv_conf.udp_address, sizeof(serv_conf.udp_address)) < 0) {
+            perror("bind failed");
+            exit(EXIT_FAILURE);
+        }
+        /* Bind TCP socket */
+        if (bind(tcp_socket, (const struct sockaddr *)&serv_conf.tcp_address, sizeof(serv_conf.tcp_address)) < 0) {
+            perror("bind failed");
+            exit(EXIT_FAILURE);
+        }
+
     /* Load allowed controllers in memory */
-    loadControllers(controllers,controllers_file);
-
-    /* Create socket file descriptor */
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-        perror("socket creation failed");
-    }
-
-    /* Bind socket to the specified port */
-    if (bind(sockfd, (const struct sockaddr *)&serv_conf.address, sizeof(serv_conf.address)) < 0) {
-        perror("bind failed");
-        exit(EXIT_FAILURE);
-    }
+    initialiseControllers(&controllers, controllers_file);
 
     /* Create a thread to handle the subscription request proces */
-    if (pthread_create(&subs_thread, NULL,subsReq, &sockfd) != 0) {
-        perror("pthread_create failed");
-        exit(EXIT_FAILURE);
+
+    while (1) {
+        struct ThreadArgs targs;
+        fd_set fds;
+        int max_fd;
+
+        FD_ZERO(&fds);
+        FD_SET(tcp_socket, &fds);
+        FD_SET(udp_socket, &fds);
+
+        max_fd = (tcp_socket > udp_socket) ? tcp_socket : udp_socket;
+
+        if (select(max_fd + 1, &fds, NULL, NULL, NULL) == -1) {
+            lerror("Unexpected error in select.",true);
+        }
+
+        if (FD_ISSET(udp_socket, &fds)) {
+            struct sockaddr_in client_addr;
+            struct Packet original_pdu;
+
+            if (pthread_create(&subs_thread, NULL,subsReq, &targs) != 0) {
+                perror("pthread_create failed");
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        if (FD_ISSET(tcp_socket, &fds)) {
+            int client_socket;
+            struct sockaddr_in client_addr;
+            socklen_t client_addr_len = sizeof(client_addr);
+
+            if ((client_socket = accept(tcp_socket, (struct sockaddr *)&client_addr, &client_addr_len)) == -1) {
+                lerror("Unexpected error while receiving TCP connection.",true);
+            }
+
+            /*pthread_create(&client_threads[num_clients], NULL, tcp_client_handler, (void *)&client_socket);*/
+        }
     }
-
-
-
-
 
     /* Join subscription to main thread when finished */
     pthread_join(subs_thread, NULL);
 
+    /*Mem dealloc the controllers*/
+    free(controllers);
+
     /*Close the socket*/
-    close(sockfd);
+    close(udp_socket);
+    close(tcp_socket);
 
     return 0;
 }

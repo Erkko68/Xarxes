@@ -43,10 +43,34 @@ int initialiseControllers(struct Controller **controllers, const char *filename)
             /*Increase number of controllers*/
             numControllers++;
         } else {
-            lwarning("Wrong controller format on line: %d. Correct format (CTRL-XXX,YYYYYYYYYYY)",true,numControllers+1);
+            lwarning("Wrong controller format in line: %d. Correct format (CTRL-XXX,YYYYYYYYYYY)",true,numControllers+1);
         }
     }
 
     fclose(file);
     return numControllers;
+}
+
+/**
+ * @brief Checks if a controller is allowed based on its MAC address.
+ *
+ * This function checks if the given controller, specified by the MAC address, is allowed based on the
+ * provided array of controllers. It iterates through the array of controllers and compares the MAC address
+ * of each controller with the MAC address of the given controller. If a matching MAC address is found,
+ * the controller is considered allowed and the function returns 1. Otherwise, the controller is considered
+ * not allowed and the function returns 0.
+ * 
+ * @param controller The controller struct to check.
+ * @param controllers Pointer to the array of Controller structs containing allowed controllers.
+ * @param numControllers The number of controllers in the array.
+ * @return Returns 1 if the controller is allowed, 0 otherwise.
+ */
+int isAllowed(struct Controller controller,struct Controller *controllers, int numControllers){
+    int i;
+    for(i=0;i<numControllers;i++){
+        if(strcmp(controller.mac,controllers[i].mac)==0){
+            return 1;
+        }
+    }
+    return 0;
 }

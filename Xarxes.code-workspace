@@ -14,7 +14,8 @@
 			"stdlib.h": "c",
 			"cstdlib": "c",
 			"pduudp.h": "c",
-			"logs.h": "c"
+			"logs.h": "c",
+			"select.h": "c"
 		}
 	}
 }
