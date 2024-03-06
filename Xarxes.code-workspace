@@ -15,7 +15,10 @@
 			"cstdlib": "c",
 			"pduudp.h": "c",
 			"logs.h": "c",
-			"select.h": "c"
+			"select.h": "c",
+			"cstdio": "c",
+			"pthread.h": "c",
+			"server_conf.h": "c"
 		}
 	}
 }

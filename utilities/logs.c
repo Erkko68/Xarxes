@@ -50,12 +50,13 @@ void lerror(const char *str, bool override, ...) {
     if (DEBUG || override) {
         va_list args;
         va_start(args, override);
-        printf("[%s] [Error] ", get_current_time());
-        vprintf(str, args);
-        printf("\n");
+        fprintf(stderr, "[%s] [Error] ", get_current_time());
+        vfprintf(stderr, str, args);
+        fprintf(stderr, ": ");
+        perror(NULL);
         va_end(args);
     }
-    exit(-1);
+    exit(EXIT_FAILURE);
 }
 
 /**

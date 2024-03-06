@@ -53,12 +53,12 @@ int initialiseControllers(struct Controller **controllers, const char *filename)
  * the controller is considered allowed and the function returns 1. Otherwise, the controller is considered
  * not allowed and the function returns 0.
  * 
- * @param controller The controller struct to check.
+ * @param mac The controller mac to check.
  * @param controllers Pointer to the array of Controller structs containing allowed controllers.
  * @param numControllers The number of controllers in the array.
  * @return Returns 1 if the controller is allowed, 0 otherwise.
  */
-int isAllowed(struct Controller controller,struct Controller *controllers, int numControllers);
+int isAllowed(char *mac,struct Controller *controllers, int numControllers);
 
 
 #endif /*CONTROLLERS_H*/

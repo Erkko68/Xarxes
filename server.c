@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <stdbool.h>
 
 #include <pthread.h>
@@ -12,16 +11,7 @@
 #include "utilities/pduudp.h"
 #include "utilities/logs.h"
 #include "utilities/controllers.h"
-
-/*Define struct for server config*/
-struct Server{
-    char name[9];
-    char mac[13];
-    unsigned short tcp; /*Range 0-65535*/
-    unsigned short udp; /*Range 0-65535*/
-    struct sockaddr_in tcp_address;
-    struct sockaddr_in udp_address;
-};
+#include "utilities/server_conf.h"
 
 /*Struct for thread arguments*/
 struct ThreadArgs{
@@ -29,99 +19,6 @@ struct ThreadArgs{
     int socket;
     struct Packet packet;
 };
-
-/**
- * @brief Returns a struct with the server configuration.
- * 
- * @param filename The name of the file to read the configuration.
- * @return struct server 
- */
-struct Server serverConfig(const char *filename) {
-    /*Create new struct*/
-    struct Server srv;
-    /*Initialise buffer*/
-    char buffer[20];
-
-    /*Open file descriptor*/
-    FILE *file = fopen(filename, "r");
-    if (file == NULL) {
-        lerror("Error opening file",false);
-    }
-    while (fgets(buffer, sizeof(buffer), file) != NULL) {
-        /*String tokenizer (Split key/value)*/
-        char *key = strtok(buffer, "=");
-        char *value = strtok(NULL, "\n");
-        /*Set config, CAUTTION: We increase the value pointer by one to point the string after the space */
-        if (strcmp(key, "Name ") == 0) {
-            strncpy(srv.name, value+1, sizeof(srv.name) - 1); 
-            srv.name[sizeof(srv.name) - 1] = '\0';
-        } else if (strcmp(key, "MAC ") == 0) {
-            strncpy(srv.mac, value+1, sizeof(srv.mac) - 1);
-            srv.mac[sizeof(srv.mac) - 1] = '\0'; 
-        } else if (strcmp(key, "TCP-Port ") == 0) {
-            srv.tcp = atoi(value);
-        } else if (strcmp(key, "UDP-Port ") == 0) {
-            srv.udp = atoi(value);
-        }
-    }
-    /* Configure UDP server address */
-    memset(&srv.udp_address, 0, sizeof(srv.udp_address));
-    srv.udp_address.sin_family = AF_INET; /* Set IPv4 */
-    srv.udp_address.sin_addr.s_addr = htonl(INADDR_ANY); /* Accept any incoming address */
-    srv.udp_address.sin_port = htons(srv.udp); /* Port number */
-
-    /* Configure TCP server address */
-    memset(&srv.tcp_address, 0, sizeof(srv.tcp_address));
-    srv.tcp_address.sin_family = AF_INET; /* Set IPv4 */
-    srv.tcp_address.sin_addr.s_addr = htonl(INADDR_ANY); /* Accept any incoming address */
-    srv.tcp_address.sin_port = htons(srv.tcp); /* Port number */
-
-    /*close file descriptor*/ 
-    fclose(file);
-    /*return new struct*/ 
-    return srv;
-}
-
-/**
- * @brief Function to parse command line arguments and get the file name.
- * 
- * @param argc The number of args
- * @param argv An array containing all the args
- * @param config_file A pointer to the config_file string
- * @param controllers A pointer to the controllers string
- */
-void args(int argc, char *argv[], char **config_file, char **controllers) {
-    int i = 1;
-    /* Default file names */
-    *config_file = "server.cfg";
-    *controllers = "controllers.dat";
-    /* Loop through command line arguments */
-    for (;i < argc; i++) {
-        /* Check for -c flag */
-        if (strcmp(argv[i], "-c") == 0) {
-            /* If -c flag is found, check if there's a file name next */
-            if (i + 1 < argc) {
-                *config_file = argv[i + 1];
-                i++; /* Ignore next arg */
-            } else {
-                lerror(" -c argument requires a file name.",true);
-            }
-        } else if (strcmp(argv[i], "-u") == 0) {
-            /* If -u flag is found, check if there's a file name next */
-            if (i + 1 < argc) {
-                *controllers = argv[i + 1];
-                i++; /* Ignore next arg */
-            } else {
-                lerror(" -u argument requires a file name.",true);
-            }
-        } else if (strcmp(argv[i], "-d") == 0) {
-            /* If -d flag is found, set debug mode*/
-            enableDebug();
-        } else {
-            lerror("Invalid argument found.",true);
-        }
-    }
-}
 
 /**
  * @brief A function executed by the subscription proces thread, wich handles the
@@ -165,7 +62,7 @@ int main(int argc, char *argv[]) {
     /*Get config and controllers file name*/
     char *config_file;
     char *controllers_file;
-    args(argc, argv, &config_file, &controllers_file);
+    readArgs(argc, argv, &config_file, &controllers_file);
 
     /*Initialize Sockets*/
 
@@ -190,32 +87,42 @@ int main(int argc, char *argv[]) {
             lerror("Error binding UDP socket",true);
         }
 
+        /* Initialize listen for TCP file descriptor. */
+        if (listen(tcp_socket, 5) == -1) {
+            lerror("Unexpected error when calling listen.",true);
+        }
+
     /* Load allowed controllers in memory */
     numControllers = initialiseControllers(&controllers, controllers_file);
 
-    if (listen(tcp_socket, 5) == -1) {
-        perror("TCP listen failed");
-        exit(EXIT_FAILURE);
-    }
-
     while (1) {
+        struct Packet udp_packet;
 
+        /* Init file descriptors macros */
         FD_ZERO(&readfds);
         FD_SET(tcp_socket, &readfds);
         FD_SET(udp_socket, &readfds);
-
+        /* Get max range of file descriptor to check */
         max_fd = (tcp_socket > udp_socket) ? tcp_socket : udp_socket;
 
+        /*Start monitoring file descriptors*/
         if (select(max_fd + 1, &readfds, NULL, NULL, NULL) < 0) {
             lerror("Unexpected error in select.",true);
         }
         
+        /* Check if UDP file descriptor has received data */
         if (FD_ISSET(udp_socket, &readfds)) {
-            linfo("Recevied data in file descriptor UDP.",false);
-            struct Packet pa = recvUdp(udp_socket,&serv_conf.udp_address);
+            linfo("Received data in file descriptor UDP.",false);
+            udp_packet = recvUdp(udp_socket,&serv_conf.udp_address);
+            if(isAllowed(udp_packet.mac,controllers,numControllers)==1){
+                printf("Allowed MAC: %s\n",udp_packet.mac);
+            }else{
+                printf("Not allowed\n");
+            }
 
         }
-                
+
+        /* Check if the TCP file descriptor has received data */   
         if (FD_ISSET(tcp_socket, &readfds)) {
             int client_socket;
             struct sockaddr_in client_addr;
