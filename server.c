@@ -72,9 +72,9 @@ struct Server serverConfig(const char *filename) {
 
     /* Configure TCP server address */
     memset(&srv.tcp_address, 0, sizeof(srv.tcp_address));
-    srv.udp_address.sin_family = AF_INET; /* Set IPv4 */
-    srv.udp_address.sin_addr.s_addr = htonl(INADDR_ANY); /* Accept any incoming address */
-    srv.udp_address.sin_port = htons(srv.tcp); /* Port number */
+    srv.tcp_address.sin_family = AF_INET; /* Set IPv4 */
+    srv.tcp_address.sin_addr.s_addr = htonl(INADDR_ANY); /* Accept any incoming address */
+    srv.tcp_address.sin_port = htons(srv.tcp); /* Port number */
 
     /*close file descriptor*/ 
     fclose(file);
@@ -159,9 +159,12 @@ int main(int argc, char *argv[]) {
     struct Server serv_conf;
     /*Array of structs for allowed clients in memory*/
     struct Controller *controllers = NULL;
+    int numControllers;
 
     /*Threads*/
-    pthread_t subs_thread;
+    /*pthread_t subs_thread;*/
+    struct sockaddr_in client_addr;
+    struct Packet pduUdp;
     
     /*Get config and controllers file name*/
     char *config_file;
@@ -175,34 +178,32 @@ int main(int argc, char *argv[]) {
 
         /* Create UDP socket file descriptor */
         if ((tcp_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-            perror("Error creating TCP socket");
-            exit(EXIT_FAILURE);
+            lerror("Error creating TCP socket",true);
         }
         /* Create UDP socket file descriptor */
         if ((udp_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-            perror("socket creation failed");
-        }
-
-        /* Bind UDP socket */
-        if (bind(udp_socket, (const struct sockaddr *)&serv_conf.udp_address, sizeof(serv_conf.udp_address)) < 0) {
-            perror("bind failed");
-            exit(EXIT_FAILURE);
+            lerror("Error creating UDP socket",true);
         }
         /* Bind TCP socket */
         if (bind(tcp_socket, (const struct sockaddr *)&serv_conf.tcp_address, sizeof(serv_conf.tcp_address)) < 0) {
-            perror("bind failed");
-            exit(EXIT_FAILURE);
+            lerror("Error binding TCP socket",true);
+        }
+        /* Bind UDP socket */
+        if (bind(udp_socket, (const struct sockaddr *)&serv_conf.udp_address, sizeof(serv_conf.udp_address)) < 0) {
+            lerror("Error binding UDP socket",true);
         }
 
     /* Load allowed controllers in memory */
-    initialiseControllers(&controllers, controllers_file);
+    numControllers = initialiseControllers(&controllers, controllers_file);
 
-    /* Create a thread to handle the subscription request proces */
+    if (listen(tcp_socket, 5) == -1) {
+        perror("TCP listen failed");
+        exit(EXIT_FAILURE);
+    }
 
+    fd_set fds;
+    int max_fd;
     while (1) {
-        struct ThreadArgs targs;
-        fd_set fds;
-        int max_fd;
 
         FD_ZERO(&fds);
         FD_SET(tcp_socket, &fds);
@@ -210,20 +211,29 @@ int main(int argc, char *argv[]) {
 
         max_fd = (tcp_socket > udp_socket) ? tcp_socket : udp_socket;
 
-        if (select(max_fd + 1, &fds, NULL, NULL, NULL) == -1) {
+        if (select(max_fd + 1, &fds, NULL, NULL, NULL) < 0) {
             lerror("Unexpected error in select.",true);
         }
-
+        
         if (FD_ISSET(udp_socket, &fds)) {
-            struct sockaddr_in client_addr;
-            struct Packet original_pdu;
+            printf("hi");
+            pduUdp = recvUdp(udp_socket,&client_addr);
+            struct Controller a;
+            strcpy(a.mac,pduUdp.mac);
+            if(isAllowed(a,controllers,numControllers)){
+                printf("Allowed");
+            }else{
+                printf("hi");
+            }
 
+            /*
             if (pthread_create(&subs_thread, NULL,subsReq, &targs) != 0) {
                 perror("pthread_create failed");
                 exit(EXIT_FAILURE);
             }
+            */
         }
-
+                
         if (FD_ISSET(tcp_socket, &fds)) {
             int client_socket;
             struct sockaddr_in client_addr;
@@ -235,10 +245,12 @@ int main(int argc, char *argv[]) {
 
             /*pthread_create(&client_threads[num_clients], NULL, tcp_client_handler, (void *)&client_socket);*/
         }
+        
+
     }
 
     /* Join subscription to main thread when finished */
-    pthread_join(subs_thread, NULL);
+    /*pthread_join(subs_thread, NULL);*/
 
     /*Mem dealloc the controllers*/
     free(controllers);
