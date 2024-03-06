@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include <pthread.h>
 
@@ -70,7 +71,7 @@ int main(int argc, char *argv[]) {
         struct Packet udp_packet;
         struct Controller new_controller;
 
-        /* Init file descriptors macros */
+        /* Init file descriptors readers */
         FD_ZERO(&readfds);
         FD_SET(tcp_socket, &readfds);
         FD_SET(udp_socket, &readfds);
@@ -84,18 +85,28 @@ int main(int argc, char *argv[]) {
         
         /* Check if UDP file descriptor has received data */
         if (FD_ISSET(udp_socket, &readfds)) {
+            int controllerIndex;
             linfo("Received data in file descriptor UDP.",false);
             udp_packet = recvUdp(udp_socket,&serv_conf.udp_address);
             new_controller = udpToController(udp_packet);
 
-            if(isAllowed(new_controller,controllers,numControllers) != -1){
-                printf("Allowed MAC: %s\n",udp_packet.mac);
-               
-            }else{
-                /* Reject Connection sending a SUBS_REJ packet*/
+            if ((controllerIndex = isAllowed(new_controller,controllers,numControllers)) != -1 ) {
+                if (controllers[controllerIndex].data.status == DISCONNECTED &&   /*Client not connected*/
+                    strcmp(udp_packet.rnd, "00000000") == 0 &&        /*Rnd number to zeros*/ 
+                    strcmp(new_controller.data.situation, "00000000000") != 0) /*Situation initialized*/
+                {
+                    printf("Client is allowed: MAC: %s\n", udp_packet.mac);
+                }else{ /* Reject Connection sending a [SUBS_REJ] packet*/
+                    sendUdp(
+                        udp_socket,
+                        createPacket(SUBS_REJ,serv_conf.mac,"00000000","Subscription Denied: Wrong Situation or Code initialisation."),
+                        &serv_conf.udp_address
+                    );
+                }
+            }else{ /* Reject Connection sending a [SUBS_REJ] packet*/
                 sendUdp(
                     udp_socket,
-                    createPacket(SUBS_REJ,serv_conf.mac,"00000000","Client is not allowed."),
+                    createPacket(SUBS_REJ,serv_conf.mac,"00000000","Subscription Denied: Not listed in allowed Controllers file."),
                     &serv_conf.udp_address
                 );
             }
@@ -113,7 +124,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    /*Mem dealloc the controllers*/
+    /*Free controllers*/
     free(controllers);
 
     /*Close the socket file descriptors*/

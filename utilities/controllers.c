@@ -47,9 +47,11 @@ int initialiseControllers(struct Controller **controllers, const char *filename)
             }
             /*Copy name and mac to the new controller*/
             strncpy((*controllers)[numControllers].name, name, sizeof((*controllers)[numControllers].name) - 1);
-            (*controllers)[numControllers].name[sizeof((*controllers)[numControllers].name) - 1] = '\0'; /*Ensure null terminator*/ 
             strncpy((*controllers)[numControllers].mac, mac, sizeof((*controllers)[numControllers].mac) - 1);
-            (*controllers)[numControllers].mac[sizeof((*controllers)[numControllers].mac) - 1] = '\0'; /*Ensure null terminator*/ 
+            /* Set to zeros any other value */
+            memset(&((*controllers)[numControllers].data), 0, sizeof((*controllers)[numControllers].data));
+            
+            /*Set disconected status*/
             (*controllers)[numControllers].data.status=DISCONNECTED;
             /*Increase number of controllers*/
             numControllers++;

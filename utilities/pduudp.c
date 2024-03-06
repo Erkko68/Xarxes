@@ -156,8 +156,11 @@ struct Controller udpToController(const struct Packet packet){
     /* Define variables */
     struct Controller controller;
     char data_copy[80];
+
     char *name;
     char *situation;
+
+    memset(data_copy, 0, sizeof(data_copy));
     
     /* Copy mac and name*/
     strcpy(controller.mac, packet.mac);

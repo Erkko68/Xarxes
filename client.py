@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Description: A python program that siumaltes the interaction of a client with diferent sensors and sends it to a server.
