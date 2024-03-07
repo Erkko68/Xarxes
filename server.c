@@ -21,6 +21,14 @@ struct ThreadArgs{
     struct Packet packet;
 };
 
+void* subsConnection(void* args){
+    /* Cast arguments */
+    struct ThreadArgs arguments = *((struct ThreadArgs*)args);
+
+    
+}
+
+
 int main(int argc, char *argv[]) {
     /*Create Ints for sockets file descriptors*/
     int tcp_socket, udp_socket, max_fd;
@@ -65,7 +73,7 @@ int main(int argc, char *argv[]) {
         }
 
     /* Load allowed controllers in memory */
-    numControllers = initialiseControllers(&controllers, controllers_file);
+    numControllers = loadControllers(&controllers, controllers_file);
 
     while (1+1!=3) {
         struct Packet udp_packet;
@@ -96,6 +104,7 @@ int main(int argc, char *argv[]) {
                     strcmp(new_controller.data.situation, "00000000000") != 0) /*Situation initialized*/
                 {
                     printf("Client is allowed: MAC: %s\n", udp_packet.mac);
+
                 }else{ /* Reject Connection sending a [SUBS_REJ] packet*/
                     sendUdp(
                         udp_socket,

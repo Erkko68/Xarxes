@@ -63,7 +63,7 @@ enum Status{
  * 
  * @throw Error if no controller has been read, when memory allocation fails, or when file descriptor fails.
  */
-int initialiseControllers(struct Controller **controllers, const char *filename);
+int loadControllers(struct Controller **controllers, const char *filename);
 
 /**
  * @brief Checks if a controller is allowed.

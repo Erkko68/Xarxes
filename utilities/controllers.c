@@ -27,7 +27,7 @@
  * @param filename The name of the file to read controller data from.
  * @return Returns the total number of controllers read from the file on success, or -1 on failure.
  */
-int initialiseControllers(struct Controller **controllers, const char *filename) {
+int loadControllers(struct Controller **controllers, const char *filename) {
     int numControllers = 0;
     char line[25]; 
 
@@ -37,8 +37,8 @@ int initialiseControllers(struct Controller **controllers, const char *filename)
     }
 
     while (fgets(line, sizeof(line), file) != NULL) {
-        char name[8];
-        char mac[12];
+        char name[9];
+        char mac[13];
         if (sscanf(line, "%9[^,],%13s", name, mac) == 2) {
             /*Dynamically reallocate memory for additional controllers*/
             *controllers = (struct Controller*) realloc(*controllers, (numControllers + 1) * sizeof(struct Controller));
@@ -46,8 +46,8 @@ int initialiseControllers(struct Controller **controllers, const char *filename)
                 lerror("Failed memory allocation while reading controllers.",true);
             }
             /*Copy name and mac to the new controller*/
-            strncpy((*controllers)[numControllers].name, name, sizeof((*controllers)[numControllers].name) - 1);
-            strncpy((*controllers)[numControllers].mac, mac, sizeof((*controllers)[numControllers].mac) - 1);
+            strncpy((*controllers)[numControllers].name, name, sizeof((*controllers)[numControllers].name));
+            strncpy((*controllers)[numControllers].mac, mac, sizeof((*controllers)[numControllers].mac));
             /* Set to zeros any other value */
             memset(&((*controllers)[numControllers].data), 0, sizeof((*controllers)[numControllers].data));
             
