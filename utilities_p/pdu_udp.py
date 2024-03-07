@@ -128,7 +128,7 @@ def send(udp_sockfd, packet, server, port):
         while byte_count < len(packet[byte_count:]):
             byte_count = udp_sockfd.sendto(packet, (server, port))
             # Print information
-            logs.info(f'Sent {byte_count} bytes during {logs.get_key(packet[0], packet_type)}.')
+            #logs.info(f'Sent {byte_count} bytes during {logs.get_key(packet[0], packet_type)}.')
             # Check if all bytes were sent
             if byte_count < len(packet[byte_count:]):
                 # If not all bytes were sent truncate the packet and send remaining information.

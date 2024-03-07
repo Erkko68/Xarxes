@@ -118,6 +118,7 @@ def process_subs_ack(packet,addr):
     Raises:
     Warning if it receives this packet when the client is not in WAIT_ACK_SUBS status
     """
+    print(vars(packet))
     if config.client['status'] != 0xa2:
         logs.warning('Shouldn\'t have received [SUBS_ACK] packet, Ignoring.. ')
     else:

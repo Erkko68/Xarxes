@@ -17,20 +17,68 @@
 /*Define global mutex between threads*/
 pthread_mutex_t mutex;
 
+struct subsThreadArgs{
+    struct Server *srvConf;
+    struct Controller *controller;
+    int *socket;
+};
+
 void* subsProcess(void *args){
-    /*Get controller pointer*/
-    struct Controller *controller = (struct Controller*)args;
-    linfo("Starting a new thread for controller: %s.\n",false,controller->mac);
+    /*Cast arguments*/
+    struct subsThreadArgs *subsArgs = (struct subsThreadArgs*)args;
 
-    while(1){    
-        /*Lock*/
-        pthread_mutex_lock(&mutex);
+    /*Connection with client params*/
+    struct timeval timeout;
+    struct Packet subsAck;
+    struct sockaddr_in newAddress;
+    int newUDPSocket;
+    socklen_t addrlen = sizeof(newAddress);
+    fd_set readfds;
+    /*SUBS_ACK data*/
+    char rnd[9];
+    char newPort[6];
 
-        controller->data.status=WAIT_INFO;
+    linfo("Starting a new thread for controller: %s.\n",false,subsArgs->controller->mac);
 
-        /*Unlock*/
-        pthread_mutex_unlock(&mutex);
+    /* Initialise new adress and port*/
+
+    memset(&newAddress, 0, sizeof(newAddress));
+    newAddress.sin_family = AF_INET; /* Set IPv4 */
+    newAddress.sin_addr.s_addr = htonl(INADDR_ANY); /* Accept any incoming address */
+    newAddress.sin_port = 0; /* Port number */
+    if ((newUDPSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        lerror("Error creating TCP socket for controller: %s",true,subsArgs->controller->mac);
     }
+    if (bind(newUDPSocket, (struct sockaddr*)&newAddress, sizeof(newAddress)) < 0) {
+        lerror("Error binding UDP socket",true);
+    }
+
+    /* Get the new Port number */
+    if (getsockname(newUDPSocket, (struct sockaddr*)&newAddress, &addrlen) < 0) {
+        lerror("Error getting UDP socket name",true);
+    }
+
+    /* [SUBS_ACK] */
+        /* Create packet*/
+        generateIdentifier(rnd);
+        /*Convert uint16_t to string*/
+        sprintf(newPort, "%d", ntohs(newAddress.sin_port));
+        subsAck = createPacket(SUBS_ACK,subsArgs->srvConf->mac,rnd,newPort);
+
+        /* Send packet */
+        sendUdp(*subsArgs->socket,subsAck,&subsArgs->srvConf->udp_address);
+    
+        /*Set client to WAIT_INFO Status*/
+        pthread_mutex_lock(&mutex); /*Lock variable*/
+        subsArgs->controller->data.status=WAIT_INFO;
+        pthread_mutex_unlock(&mutex); /*UNlock variable*/
+    
+    /*Monitorize file descriptors*/
+    FD_ZERO(&readfds);
+    FD_SET(newUDPSocket, &readfds);
+    /*Set select timeouts*/
+    timeout.tv_sec = 3;
+    timeout.tv_usec = 0;
 
     return NULL;
 }
@@ -100,6 +148,7 @@ int main(int argc, char *argv[]) {
     pthread_mutex_init(&mutex, NULL);
     
     while (1+1!=3) {
+        struct subsThreadArgs subsArgs;
         struct Packet udp_packet;
 
         /* Init file descriptors readers */
@@ -122,14 +171,17 @@ int main(int argc, char *argv[]) {
             udp_packet = recvUdp(udp_socket,&serv_conf.udp_address);
 
             if ((controllerIndex = isAllowed(udp_packet,controllers,numControllers)) != -1 ) {
-                printf("%d\n",controllerIndex);
                 if ((controllers[controllerIndex].data.status == DISCONNECTED) && (strcmp(udp_packet.rnd, "00000000") == 0)){
-                    /*Start new HELLO Protocol for the new Client*/
+                    /*Start new thread for the new Client connection*/
                     num_threads++;
                     if((threads = (pthread_t *)realloc(threads, num_threads * sizeof(pthread_t))) == NULL){
                         lerror("Failed to reallocate thread.",true);
                     }
-                    if (pthread_create(&threads[num_threads - 1], NULL, subsProcess,(void*)&controllers[controllerIndex]) != 0) {
+                        subsArgs.srvConf=&serv_conf;
+                        subsArgs.controller=&controllers[controllerIndex];
+                        subsArgs.socket=&udp_socket;
+
+                    if (pthread_create(&threads[num_threads - 1], NULL, subsProcess,(void*)&subsArgs) != 0) {
                         lerror("Thread creation failed",true);
                     }
                     

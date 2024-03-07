@@ -11,6 +11,8 @@
  */
 
 #include <string.h>
+#include <stdlib.h>
+#include <time.h>
 #include "pduudp.h"
 #include "logs.h"
 
@@ -132,4 +134,29 @@ struct Packet recvUdp(const int socketFd, struct sockaddr_in *address){
     bytesToUdp(buffer,&pdu_udp);
 
     return pdu_udp;
+}
+
+/**
+ * @brief Generates a random 8-digit number as a string.
+ *
+ * This function generates a random 8-digit number between 00000000 and
+ * 99999999 and stores it as a string in the provided character array 
+ * 'str'. The result is formatted with leading zeros if necessary.
+ * 
+ * @param str A char array where the random number will be stored as string.
+ */
+void generateIdentifier(char str[9]) {
+    int random_num;
+    int quotient;
+    int i;
+    /* Set Seed */
+    srand(time(NULL));
+    /* Number between 0 and 99999999 */
+    random_num = rand() % 100000000;
+    quotient = random_num;
+    for (i = 7; i >= 0; i--) {
+        str[i] = '0' + quotient % 10;
+        quotient /= 10;
+    }
+    str[8] = '\0'; /*Null-terminate the string*/
 }

@@ -117,4 +117,15 @@ void sendUdp(const int socketFd, const struct Packet packet, const struct sockad
  */
 struct Packet recvUdp(const int socketFd, struct sockaddr_in *address);
 
+/**
+ * @brief Generates a random 8-digit number as a string.
+ *
+ * This function generates a random 8-digit number between 00000000 and
+ * 99999999 and stores it as a string in the provided character array 
+ * 'str'. The result is formatted with leading zeros if necessary.
+ * 
+ * @param str A char array where the random number will be stored as string.
+ */
+void generateIdentifier(char str[9]);
+
 #endif /* PDUUDP_H */
