@@ -17,10 +17,20 @@
 /*Define global mutex between threads*/
 pthread_mutex_t mutex;
 
-void* subsProcess(void* args){
-    /*Cast controller*/
-    struct Controller controller = *((struct Controller*)args);
-    linfo("Starting a new thread for controller: %s.\n",false,controller.mac);
+void* subsProcess(void *args){
+    /*Get controller pointer*/
+    struct Controller *controller = (struct Controller*)args;
+    linfo("Starting a new thread for controller: %s.\n",false,controller->mac);
+
+    while(1){    
+        /*Lock*/
+        pthread_mutex_lock(&mutex);
+
+        controller->data.status=WAIT_INFO;
+
+        /*Unlock*/
+        pthread_mutex_unlock(&mutex);
+    }
 
     return NULL;
 }
@@ -36,6 +46,7 @@ int main(int argc, char *argv[]) {
     /*Initialise variables Threads*/
     pthread_t *threads = NULL;
     int num_threads = 0;
+    int i;
     /*Initialise file descriptors select*/
     fd_set readfds;
     int max_fd;
@@ -46,6 +57,7 @@ int main(int argc, char *argv[]) {
     readArgs(argc, argv, &config_file, &controllers_file);
 
     /*Initialize Sockets*/
+    linfo("Initialising socket creation...",false);
 
         /* Create UDP socket file descriptor */
         if ((tcp_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -55,9 +67,11 @@ int main(int argc, char *argv[]) {
         if ((udp_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
             lerror("Error creating UDP socket",true);
         }
-
+        linfo("Reading server configuration files...",false);
         /*Initialise server configuration struct*/
         serv_conf = serverConfig(config_file);
+
+        linfo("Binding sockets to server adress...",false);
 
         /* Bind TCP socket */
         if (bind(tcp_socket, (struct sockaddr *)&serv_conf.tcp_address, sizeof(serv_conf.tcp_address)) < 0) {
@@ -73,8 +87,14 @@ int main(int argc, char *argv[]) {
             lerror("Unexpected error when calling listen.",true);
         }
 
+    linfo("Loading controllers...",false);
     /* Load allowed controllers in memory */
     numControllers = loadControllers(&controllers, controllers_file);
+    if(numControllers==0){
+        lerror("0 controllers loaded. Exiting...",true);
+    } else {
+        linfo("%d controllers loaded. Waiting for incoming connections...",false,numControllers);
+    }
 
     /*Initialise mutex*/
     pthread_mutex_init(&mutex, NULL);
@@ -97,12 +117,13 @@ int main(int argc, char *argv[]) {
         /* Check if UDP file descriptor has received data */
         if (FD_ISSET(udp_socket, &readfds)) {
             /*Receive data and find the controller index, in case it exists*/
-            int controllerIndex;
+            int controllerIndex=0;
             linfo("Received data in file descriptor UDP.",false);
             udp_packet = recvUdp(udp_socket,&serv_conf.udp_address);
 
             if ((controllerIndex = isAllowed(udp_packet,controllers,numControllers)) != -1 ) {
-                if (controllers[controllerIndex].data.status == DISCONNECTED && strcmp(udp_packet.rnd, "00000000") == 0){
+                printf("%d\n",controllerIndex);
+                if ((controllers[controllerIndex].data.status == DISCONNECTED) && (strcmp(udp_packet.rnd, "00000000") == 0)){
                     /*Start new HELLO Protocol for the new Client*/
                     num_threads++;
                     if((threads = (pthread_t *)realloc(threads, num_threads * sizeof(pthread_t))) == NULL){
@@ -111,8 +132,6 @@ int main(int argc, char *argv[]) {
                     if (pthread_create(&threads[num_threads - 1], NULL, subsProcess,(void*)&controllers[controllerIndex]) != 0) {
                         lerror("Thread creation failed",true);
                     }
-                    /*Join thread when finished*/
-                    pthread_join(threads[num_threads], NULL);
                     
                 }else{ /* Reject Connection sending a [SUBS_REJ] packet*/
                     linfo("Denied connection to Controller: %s. Reason: Wrong Situation or Code format.",false,udp_packet.mac);
@@ -144,6 +163,11 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    /*Join thread when finished*/
+    for(i=0;i<num_threads;i++){
+        pthread_join(threads[i], NULL);
+    }
+    
     /*Free controllers*/
     free(controllers);
     /*Free threads*/
