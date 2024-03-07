@@ -29,11 +29,13 @@ void* subsProcess(void *args){
 
     /*Connection with client params*/
     struct timeval timeout;
-    struct Packet subsAck;
+    struct Packet subsPacket;
     struct sockaddr_in newAddress;
     int newUDPSocket;
     socklen_t addrlen = sizeof(newAddress);
     fd_set readfds;
+    int received;
+
     /*SUBS_ACK data*/
     char rnd[9];
     char newPort[6];
@@ -46,7 +48,7 @@ void* subsProcess(void *args){
     newAddress.sin_family = AF_INET; /* Set IPv4 */
     newAddress.sin_addr.s_addr = htonl(INADDR_ANY); /* Accept any incoming address */
     newAddress.sin_port = 0; /* Port number */
-    if ((newUDPSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    if ((newUDPSocket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         lerror("Error creating TCP socket for controller: %s",true,subsArgs->controller->mac);
     }
     if (bind(newUDPSocket, (struct sockaddr*)&newAddress, sizeof(newAddress)) < 0) {
@@ -63,22 +65,45 @@ void* subsProcess(void *args){
         generateIdentifier(rnd);
         /*Convert uint16_t to string*/
         sprintf(newPort, "%d", ntohs(newAddress.sin_port));
-        subsAck = createPacket(SUBS_ACK,subsArgs->srvConf->mac,rnd,newPort);
+        subsPacket = createPacket(SUBS_ACK,subsArgs->srvConf->mac,rnd,newPort);
 
         /* Send packet */
-        sendUdp(*subsArgs->socket,subsAck,&subsArgs->srvConf->udp_address);
+        sendUdp(*subsArgs->socket,subsPacket,&subsArgs->srvConf->udp_address);
     
-        /*Set client to WAIT_INFO Status*/
+        /*Set client to WAIT_INFO Status and assign identifier*/
         pthread_mutex_lock(&mutex); /*Lock variable*/
         subsArgs->controller->data.status=WAIT_INFO;
+        strcpy(subsArgs->controller->data.rand,newPort);
         pthread_mutex_unlock(&mutex); /*UNlock variable*/
     
     /*Monitorize file descriptors*/
     FD_ZERO(&readfds);
     FD_SET(newUDPSocket, &readfds);
     /*Set select timeouts*/
-    timeout.tv_sec = 3;
+    timeout.tv_sec = 2;
     timeout.tv_usec = 0;
+
+    if((received=select(newUDPSocket + 1, &readfds, NULL, NULL, &timeout))<0){
+        lerror("Error initialising select for controller thread: %s",true,subsArgs->srvConf->mac);
+        
+    }else if(received==0){ /*No packet received*/
+
+        /*Set client to DISCONNECTED Status*/
+        pthread_mutex_lock(&mutex); /*Lock variable*/
+        subsArgs->controller->data.status=DISCONNECTED;
+        pthread_mutex_unlock(&mutex); /*Unlock variable*/
+
+        /*Close Socket connection*/
+        close(newUDPSocket);
+    }else{
+        /*Expect a SUBS_INFO Packet*/
+        subsPacket = recvUdp(newUDPSocket,&newAddress);
+        /* COMPARISON NOT WORKING */
+        if(strcmp(subsPacket.mac,subsArgs->controller->mac) == 0 && strcmp(subsPacket.rnd,subsArgs->controller->data.rand) == 0){
+            /*Return INFO_ACK*/
+            printf("INFO_ACK\n");
+        }
+    }
 
     return NULL;
 }
@@ -215,7 +240,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    /*Join thread when finished*/
+    /*Join threads when finished*/
     for(i=0;i<num_threads;i++){
         pthread_join(threads[i], NULL);
     }
