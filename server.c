@@ -14,30 +14,31 @@
 #include "utilities/controllers.h"
 #include "utilities/server_conf.h"
 
-/*Struct for thread arguments*/
-struct ThreadArgs{
-    pthread_mutex_t mutex;
-    int socket;
-    struct Packet packet;
-};
+/*Define global mutex between threads*/
+pthread_mutex_t mutex;
 
-void* subsConnection(void* args){
-    /* Cast arguments */
-    struct ThreadArgs arguments = *((struct ThreadArgs*)args);
+void* subsProcess(void* args){
+    /*Cast controller*/
+    struct Controller controller = *((struct Controller*)args);
+    linfo("Starting a new thread for controller: %s.\n",false,controller.mac);
 
-    
+    return NULL;
 }
-
 
 int main(int argc, char *argv[]) {
     /*Create Ints for sockets file descriptors*/
-    int tcp_socket, udp_socket, max_fd;
-    fd_set readfds;
+    int tcp_socket, udp_socket;
     /*Struct for server configuration*/
     struct Server serv_conf;
     /*Array of structs for allowed clients in memory*/
     struct Controller *controllers = NULL;
     int numControllers;
+    /*Initialise variables Threads*/
+    pthread_t *threads = NULL;
+    int num_threads = 0;
+    /*Initialise file descriptors select*/
+    fd_set readfds;
+    int max_fd;
     
     /*Get config and controllers file name*/
     char *config_file;
@@ -75,9 +76,11 @@ int main(int argc, char *argv[]) {
     /* Load allowed controllers in memory */
     numControllers = loadControllers(&controllers, controllers_file);
 
+    /*Initialise mutex*/
+    pthread_mutex_init(&mutex, NULL);
+    
     while (1+1!=3) {
         struct Packet udp_packet;
-        struct Controller new_controller;
 
         /* Init file descriptors readers */
         FD_ZERO(&readfds);
@@ -93,26 +96,34 @@ int main(int argc, char *argv[]) {
         
         /* Check if UDP file descriptor has received data */
         if (FD_ISSET(udp_socket, &readfds)) {
+            /*Receive data and find the controller index, in case it exists*/
             int controllerIndex;
             linfo("Received data in file descriptor UDP.",false);
             udp_packet = recvUdp(udp_socket,&serv_conf.udp_address);
-            new_controller = udpToController(udp_packet);
 
-            if ((controllerIndex = isAllowed(new_controller,controllers,numControllers)) != -1 ) {
-                if (controllers[controllerIndex].data.status == DISCONNECTED &&   /*Client not connected*/
-                    strcmp(udp_packet.rnd, "00000000") == 0 &&        /*Rnd number to zeros*/ 
-                    strcmp(new_controller.data.situation, "00000000000") != 0) /*Situation initialized*/
-                {
-                    printf("Client is allowed: MAC: %s\n", udp_packet.mac);
-
+            if ((controllerIndex = isAllowed(udp_packet,controllers,numControllers)) != -1 ) {
+                if (controllers[controllerIndex].data.status == DISCONNECTED && strcmp(udp_packet.rnd, "00000000") == 0){
+                    /*Start new HELLO Protocol for the new Client*/
+                    num_threads++;
+                    if((threads = (pthread_t *)realloc(threads, num_threads * sizeof(pthread_t))) == NULL){
+                        lerror("Failed to reallocate thread.",true);
+                    }
+                    if (pthread_create(&threads[num_threads - 1], NULL, subsProcess,(void*)&controllers[controllerIndex]) != 0) {
+                        lerror("Thread creation failed",true);
+                    }
+                    /*Join thread when finished*/
+                    pthread_join(threads[num_threads], NULL);
+                    
                 }else{ /* Reject Connection sending a [SUBS_REJ] packet*/
+                    linfo("Denied connection to Controller: %s. Reason: Wrong Situation or Code format.",false,udp_packet.mac);
                     sendUdp(
                         udp_socket,
-                        createPacket(SUBS_REJ,serv_conf.mac,"00000000","Subscription Denied: Wrong Situation or Code initialisation."),
+                        createPacket(SUBS_REJ,serv_conf.mac,"00000000","Subscription Denied: Wrong Situation or Code format."),
                         &serv_conf.udp_address
                     );
                 }
             }else{ /* Reject Connection sending a [SUBS_REJ] packet*/
+                linfo("Denied connection to Controller: %s. Reason: Not listed in allowed Controllers file.",false,udp_packet.mac);
                 sendUdp(
                     udp_socket,
                     createPacket(SUBS_REJ,serv_conf.mac,"00000000","Subscription Denied: Not listed in allowed Controllers file."),
@@ -135,6 +146,8 @@ int main(int argc, char *argv[]) {
 
     /*Free controllers*/
     free(controllers);
+    /*Free threads*/
+    free(threads);
 
     /*Close the socket file descriptors*/
     close(udp_socket);

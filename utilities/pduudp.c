@@ -10,11 +10,9 @@
  * @date 2024-3-4
  */
 
-#include <arpa/inet.h>
 #include <string.h>
 #include "pduudp.h"
 #include "logs.h"
-#include "controllers.h"
 
 #define PDUUDP 103
 
@@ -134,47 +132,4 @@ struct Packet recvUdp(const int socketFd, struct sockaddr_in *address){
     bytesToUdp(buffer,&pdu_udp);
 
     return pdu_udp;
-}
-
-
-/**
- * @brief Converts a UDP packet into a Controller structure.
- *
- * This function takes a UDP packet represented by the 'packet' parameter and 
- * converts it into a Controller structure. It copies the MAC address and random
- * data from the packet into the corresponding fields of the Controller struct. 
- * Then, it creates a copy of the packet data to prevent modification of the 
- * original data by the string tokenizer. The function tokenizes the copied data 
- * using commas as delimiters and stores the tokenized data into the Controller 
- * struct.
- * 
- * @param packet The UDP packet to be converted.
- * 
- * @return Returns a Controller structure representing the converted UDP packet.
- */
-struct Controller udpToController(const struct Packet packet){
-    /* Define variables */
-    struct Controller controller;
-    char data_copy[80];
-
-    char *name;
-    char *situation;
-
-    memset(data_copy, 0, sizeof(data_copy));
-    
-    /* Copy mac and name*/
-    strcpy(controller.mac, packet.mac);
-    strcpy(controller.data.rand, packet.rnd);
-    
-    /* Make a copy of packet data */
-    strcpy(data_copy, packet.data);
-    
-    /* Tokenize and store packet data */
-    name = strtok(data_copy, ",");
-    strcpy(controller.name, name);
-    
-    situation = strtok(NULL, ",");
-    strcpy(controller.data.situation, situation);
-
-    return controller;
 }

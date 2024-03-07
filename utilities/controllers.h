@@ -11,6 +11,7 @@
 #ifndef CONTROLLERS_H
 #define CONTROLLERS_H
 
+#include "pduudp.h"
 
 /*Define struct for controller info*/
 struct ControllerInfo{
@@ -68,18 +69,18 @@ int loadControllers(struct Controller **controllers, const char *filename);
 /**
  * @brief Checks if a controller is allowed.
  *
- * This function checks if the given controller, specified by the MAC address and name, is allowed based on the
+ * This function checks if the given packet, specified by the MAC address and name, is allowed based on the
  * provided array of controllers. It iterates through the array of controllers and compares the MAC address
- * and name of each controller with the given controller. If a both values are equal, the controller is
+ * and name of each controller with the given packet. If a both values are equal, the controller is
  * considered allowed and the function returns the index of the controller. Otherwise, the controller is considered
  * not allowed and the function returns -1.
  * 
- * @param controller The controller struct to check.
+ * @param packet The packet struct to check.
  * @param controllers Pointer to the array of Controller structs containing allowed controllers.
  * @param numControllers The number of controllers in the array.
  * @return Returns 1 if the controller is allowed, 0 otherwise.
  */
-int isAllowed(const struct Controller controller,const struct Controller *controllers, int numControllers);
+int isAllowed(const struct Packet packet, struct Controller *controllers, int numControllers);
 
 
 #endif /*CONTROLLERS_H*/

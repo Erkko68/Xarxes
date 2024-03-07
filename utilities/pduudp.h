@@ -13,6 +13,8 @@
 #ifndef PDUUDP_H
 #define PDUUDP_H
 
+#include <arpa/inet.h>
+
 /* Define struct for pdu_udp packet:
    - type (1 byte)           : Represents the type of UDP packet.
    - mac (13 byte)           : Represents the MAC address.
@@ -114,22 +116,5 @@ void sendUdp(const int socketFd, const struct Packet packet, const struct sockad
  * @return Returns a Packet struct containing the received UDP packet.
  */
 struct Packet recvUdp(const int socketFd, struct sockaddr_in *address);
-
-/**
- * @brief Converts a UDP packet into a Controller structure.
- *
- * This function takes a UDP packet represented by the 'packet' parameter and 
- * converts it into a Controller structure. It copies the MAC address and random
- * data from the packet into the corresponding fields of the Controller struct. 
- * Then, it creates a copy of the packet data to prevent modification of the 
- * original data by the string tokenizer. The function tokenizes the copied data 
- * using commas as delimiters and stores the tokenized data into the Controller 
- * struct.
- * 
- * @param packet The UDP packet to be converted.
- * 
- * @return Returns a Controller structure representing the converted UDP packet.
- */
-struct Controller udpToController(const struct Packet packet);
 
 #endif /* PDUUDP_H */
