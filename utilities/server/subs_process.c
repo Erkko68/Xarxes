@@ -74,7 +74,7 @@ void handleSubsAck(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddre
 /* Function to handle SUBS_INFO
  *
  * @brief Handles the SUBS_INFO process by receiving and processing the SUBS_INFO packet,
- *        sending appropriate responses, and updating the controller status.
+ *        sending the packet responses, and updating the controller status.
  *
  * @param subsArgs Pointer to subscription thread arguments.
  * @param newAddress Pointer to a sockaddr_in structure containing the socket address information.

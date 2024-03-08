@@ -2,7 +2,7 @@
 
 pthread_mutex_t mutex;
 
-/* Subscription Process Function */
+/* Subscription Process Thread */
 void* subsProcess(void *args) {
     struct subsThreadArgs *subsArgs = (struct subsThreadArgs*)args;
     struct timeval timeout;
@@ -13,7 +13,7 @@ void* subsProcess(void *args) {
     char rnd[9];
 
     /* Log start of the thread */
-    linfo("Starting a new thread for controller: %s.\n", false, subsArgs->controller->mac);
+    linfo("Starting new subscription process for controller: %s.\n", false, subsArgs->controller->mac);
 
     /* Generate random identifier */
     generateIdentifier(rnd);
@@ -24,7 +24,7 @@ void* subsProcess(void *args) {
     /* Handle SUBS_ACK */
     handleSubsAck(subsArgs, &newAddress, rnd);
 
-    /* Initialize file descriptor set and timeout */
+    /* Initialize file descriptor and set timeout */
     FD_ZERO(&readfds);
     FD_SET(newUDPSocket, &readfds);
     timeout.tv_sec = 2;
@@ -32,7 +32,7 @@ void* subsProcess(void *args) {
 
     /* Wait for SUBS_INFO or timeout */
     if ((received = select(newUDPSocket + 1, &readfds, NULL, NULL, &timeout)) < 0) {
-        lerror("Error initializing select for controller thread: %s", true, subsArgs->srvConf->mac);
+        lerror("Error initializing select during subscription process thread by client: %s", true, subsArgs->srvConf->mac);
     } else if (received == 0) {
         /* Handle timeout */
         pthread_mutex_lock(&mutex);
@@ -49,7 +49,7 @@ void* subsProcess(void *args) {
 }
 
 int main(int argc, char *argv[]) {
-    /*Create Ints for default server sockets file descriptors*/
+    /*Create default server sockets file descriptors*/
     int tcp_socket, udp_socket;
     /*Struct for server configuration*/
     struct Server serv_conf;
@@ -69,9 +69,12 @@ int main(int argc, char *argv[]) {
     char *controllers_file;
     readArgs(argc, argv, &config_file, &controllers_file);
 
+    /*Initialise server configuration struct*/
+    linfo("Reading server configuration files...",false);
+    serv_conf = serverConfig(config_file);
+
     /*Initialize Sockets*/
     linfo("Initialising socket creation...",false);
-
         /* Create UDP socket file descriptor */
         if ((tcp_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
             lerror("Error creating TCP socket",true);
@@ -80,12 +83,8 @@ int main(int argc, char *argv[]) {
         if ((udp_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
             lerror("Error creating UDP socket",true);
         }
-        linfo("Reading server configuration files...",false);
-        /*Initialise server configuration struct*/
-        serv_conf = serverConfig(config_file);
 
-        linfo("Binding sockets to server adress...",false);
-
+    linfo("Binding sockets to server adress...",false);
         /* Bind TCP socket */
         if (bind(tcp_socket, (struct sockaddr *)&serv_conf.tcp_address, sizeof(serv_conf.tcp_address)) < 0) {
             lerror("Error binding TCP socket",true);
@@ -100,14 +99,14 @@ int main(int argc, char *argv[]) {
             lerror("Unexpected error when calling listen.",true);
         }
 
-    linfo("Loading controllers...",false);
     /* Load allowed controllers in memory */
-    numControllers = loadControllers(&controllers, controllers_file);
-    if(numControllers==0){
-        lerror("0 controllers loaded. Exiting...",true);
-    } else {
-        linfo("%d controllers loaded. Waiting for incoming connections...",false,numControllers);
-    }
+    linfo("Loading controllers...",false);
+        numControllers = loadControllers(&controllers, controllers_file);
+        if(numControllers==0){
+            lerror("0 controllers loaded. Exiting...",true);
+        } else {
+            linfo("%d controllers loaded. Waiting for incoming connections...",false,numControllers);
+        }
 
     /*Initialise mutex (Locks and unlocks)*/
     pthread_mutex_init(&mutex, NULL);
