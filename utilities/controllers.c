@@ -4,8 +4,8 @@
  * 
  * 
  * @author Eric Bitria Ribes
- * @version 0.2
- * @date 2024-3-6
+ * @version 0.3
+ * @date 2024-3-8
  */
 
 #include <stdio.h>
@@ -83,24 +83,42 @@ int isAllowed(const struct Packet packet, struct Controller *controllers, int nu
     int i;
     /* Make a copy of packet data*/
     char data_copy[80];
-    char* name;
-    char* situation;
-    
+    char* name;    
     strcpy(data_copy, packet.data);
     /*Tokenize copied data*/
     name = strtok(data_copy, ",");
-    situation = strtok(NULL, ",");
 
     /*Iterate over allowed controllers*/
     for (i = 0; i < numControllers; i++) {
         if (strcmp(packet.mac, controllers[i].mac) == 0 && 
-            strcmp(name, controllers[i].name) == 0 && 
-            strcmp(situation, "000000000000") != 0) {
-            /*Copy situation*/
-            strcpy(controllers[i].data.situation, situation);
+            strcmp(name, controllers[i].name) == 0) {
             /*Return index*/
             return i;
         }
     }
     return -1;
+}
+
+
+/**
+ * @brief Tokenizes and stores an string into diferent devices names.
+ *
+ * This function tokenizes the given string using the specified delimiter and stores the tokens into the provided array.
+ * It iterates through the string, extracting tokens using strtok function until no more tokens are found or the maximum
+ * number of tokens is reached. Each token is copied into devices struct.
+ * 
+ * @param devices The string to tokenize.
+ * @param deviceArray Pointer to the array where tokens will be stored.
+ * @param delimiter The delimiter used to tokenize the string.
+ */
+void storeDevices(char *devices, char (*deviceArray)[8], char *delimiter) {
+    int i = 0;
+    char *device;
+    device = strtok(devices, delimiter);
+    while (device != NULL && i < 10) {
+        strncpy(deviceArray[i], device, sizeof(deviceArray[i]) - 1);
+        deviceArray[i][sizeof(deviceArray[i]) - 1] = '\0';
+        device = strtok(NULL, delimiter);
+        i++;
+    }
 }

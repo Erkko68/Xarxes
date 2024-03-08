@@ -18,7 +18,7 @@ struct ControllerInfo{
     unsigned char status;
     char situation[13];
     char rand[9];
-    char elements[10][8];
+    char devices[10][8];
     unsigned short tcp; /*Range 0-65535*/
     unsigned short udp; /*Range 0-65535*/
 };
@@ -81,6 +81,19 @@ int loadControllers(struct Controller **controllers, const char *filename);
  * @return Returns 1 if the controller is allowed, 0 otherwise.
  */
 int isAllowed(const struct Packet packet, struct Controller *controllers, int numControllers);
+
+/**
+ * @brief Tokenizes and stores an string into diferent devices names.
+ *
+ * This function tokenizes the given string using the specified delimiter and stores the tokens into the provided array.
+ * It iterates through the string, extracting tokens using strtok function until no more tokens are found or the maximum
+ * number of tokens is reached. Each token is copied into devices struct.
+ * 
+ * @param devices The string to tokenize.
+ * @param deviceArray Pointer to the array where tokens will be stored.
+ * @param delimiter The delimiter used to tokenize the string.
+ */
+void storeDevices(char *devices, char (*deviceArray)[8], char *delimiter);
 
 
 #endif /*CONTROLLERS_H*/

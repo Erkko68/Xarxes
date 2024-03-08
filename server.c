@@ -21,6 +21,7 @@ struct subsThreadArgs{
     struct Server *srvConf;
     struct Controller *controller;
     int *socket;
+    char *situation;
 };
 
 void* subsProcess(void *args){
@@ -61,6 +62,7 @@ void* subsProcess(void *args){
     }
 
     /* [SUBS_ACK] */
+
         /* Create packet*/
         generateIdentifier(rnd);
         /*Convert uint16_t to string*/
@@ -73,15 +75,18 @@ void* subsProcess(void *args){
         /*Set client to WAIT_INFO Status and assign identifier*/
         pthread_mutex_lock(&mutex); /*Lock variable*/
         subsArgs->controller->data.status=WAIT_INFO;
-        strcpy(subsArgs->controller->data.rand,newPort);
         pthread_mutex_unlock(&mutex); /*UNlock variable*/
-    
+
+    /* [SUBS_ACK] */
+
     /*Monitorize file descriptors*/
     FD_ZERO(&readfds);
     FD_SET(newUDPSocket, &readfds);
     /*Set select timeouts*/
     timeout.tv_sec = 2;
     timeout.tv_usec = 0;
+
+    /* [SUBS_INFO] */
 
     if((received=select(newUDPSocket + 1, &readfds, NULL, NULL, &timeout))<0){
         lerror("Error initialising select for controller thread: %s",true,subsArgs->srvConf->mac);
@@ -90,20 +95,56 @@ void* subsProcess(void *args){
 
         /*Set client to DISCONNECTED Status*/
         pthread_mutex_lock(&mutex); /*Lock variable*/
-        subsArgs->controller->data.status=DISCONNECTED;
+            subsArgs->controller->data.status=DISCONNECTED;
         pthread_mutex_unlock(&mutex); /*Unlock variable*/
 
         /*Close Socket connection*/
         close(newUDPSocket);
     }else{
+        char *tcp;
+        char *devices;
         /*Expect a SUBS_INFO Packet*/
         subsPacket = recvUdp(newUDPSocket,&newAddress);
-        /* COMPARISON NOT WORKING */
-        if(strcmp(subsPacket.mac,subsArgs->controller->mac) == 0 && strcmp(subsPacket.rnd,subsArgs->controller->data.rand) == 0){
-            /*Return INFO_ACK*/
-            printf("INFO_ACK\n");
+        
+        /*Lock strtok*/
+        pthread_mutex_lock(&mutex);
+            tcp = strtok(subsPacket.data,",");
+            devices = strtok(NULL,",");
+        pthread_mutex_unlock(&mutex); 
+
+        /* Check Correct MAC, Identifier, TCP and devices */
+        if(strcmp(subsPacket.mac,subsArgs->controller->mac) == 0 && strcmp(subsPacket.rnd,rnd) == 0 && tcp != NULL && devices != NULL){
+            char tcpPort[6];
+            sprintf(tcpPort,"%d",subsArgs->srvConf->tcp);
+
+            /* [INFO_ACK] */
+            
+            sendUdp(newUDPSocket,createPacket(INFO_ACK,subsArgs->srvConf->mac,rnd,tcpPort),&newAddress);
+            
+            pthread_mutex_lock(&mutex); /*Lock variable*/
+                /* Store Controller DATA */
+                strcpy(subsArgs->controller->data.rand,rnd);
+                strcpy(subsArgs->controller->data.situation,subsArgs->situation);
+                /* Store devices */
+                storeDevices(devices,subsArgs->controller->data.devices,";");
+                /*Set SUBSCRIBED status*/
+                subsArgs->controller->data.status=SUBSCRIBED;
+            pthread_mutex_unlock(&mutex); /*Unlock variable*/
+            
+            /* [INFO_ACK] */
+
+        } else { /*Wrong SUBS_INFO data*/
+            linfo("Subscription ended for Controller: %s. Reason: Wrong Info in SUBS_INFO packet. Controller set to DISCONNECTED mode.", false, subsArgs->controller->mac);
+            sendUdp(newUDPSocket, createPacket(SUBS_REJ, subsArgs->srvConf->mac, "00000000", "Subscription Denied: Wrong Info in SUBS_INFO packet."), &newAddress);
+            
+            /*Set client to DISCONNECTED Status*/
+            pthread_mutex_lock(&mutex); /*Lock variable*/
+                subsArgs->controller->data.status=DISCONNECTED;
+            pthread_mutex_unlock(&mutex); /*Unlock variable*/
         }
     }
+
+    /* [SUBS_INFO] */
 
     return NULL;
 }
@@ -169,7 +210,7 @@ int main(int argc, char *argv[]) {
         linfo("%d controllers loaded. Waiting for incoming connections...",false,numControllers);
     }
 
-    /*Initialise mutex*/
+    /*Initialise mutex (Locks and unlocks)*/
     pthread_mutex_init(&mutex, NULL);
     
     while (1+1!=3) {
@@ -190,41 +231,47 @@ int main(int argc, char *argv[]) {
         
         /* Check if UDP file descriptor has received data */
         if (FD_ISSET(udp_socket, &readfds)) {
-            /*Receive data and find the controller index, in case it exists*/
-            int controllerIndex=0;
-            linfo("Received data in file descriptor UDP.",false);
-            udp_packet = recvUdp(udp_socket,&serv_conf.udp_address);
+            /* Receive data and find the controller index, if it exists */
+            int controllerIndex = 0;
+            linfo("Received data in file descriptor UDP.", false);
+            udp_packet = recvUdp(udp_socket, &serv_conf.udp_address);
 
-            if ((controllerIndex = isAllowed(udp_packet,controllers,numControllers)) != -1 ) {
-                if ((controllers[controllerIndex].data.status == DISCONNECTED) && (strcmp(udp_packet.rnd, "00000000") == 0)){
-                    /*Start new thread for the new Client connection*/
-                    num_threads++;
-                    if((threads = (pthread_t *)realloc(threads, num_threads * sizeof(pthread_t))) == NULL){
-                        lerror("Failed to reallocate thread.",true);
-                    }
-                        subsArgs.srvConf=&serv_conf;
-                        subsArgs.controller=&controllers[controllerIndex];
-                        subsArgs.socket=&udp_socket;
+            if ((controllerIndex = isAllowed(udp_packet, controllers, numControllers)) != -1) {
+                
+                /* Check if controller is disconnected */
+                if ((controllers[controllerIndex].data.status == DISCONNECTED)){
+                    /*Get situation*/
+                    char* situation;
+                    situation = strtok(udp_packet.data, ",");
+                    situation = strtok(udp_packet.data, ",");
 
-                    if (pthread_create(&threads[num_threads - 1], NULL, subsProcess,(void*)&subsArgs) != 0) {
-                        lerror("Thread creation failed",true);
+                    /* Check if packet has correct identifier and situation */
+                    if((strcmp(udp_packet.rnd, "00000000") == 0) && (strcmp(situation, "000000000000") != 0)) {
+
+                        /* Start new thread for the new Client connection */
+                        num_threads++;
+                        if ((threads = (pthread_t *)realloc(threads, num_threads * sizeof(pthread_t))) == NULL) {
+                            lerror("Failed to reallocate thread.", true);
+                        }
+                        /*Create thread arguments*/
+                        subsArgs.situation=situation;
+                        subsArgs.srvConf = &serv_conf;
+                        subsArgs.controller = &controllers[controllerIndex];
+                        subsArgs.socket = &udp_socket;
+
+                        if (pthread_create(&threads[num_threads - 1], NULL, subsProcess, (void*)&subsArgs) != 0) {
+                            lerror("Thread creation failed", true);
+                        }
+                    } else { 
+                        /* Reject Connection sending a [SUBS_REJ] packet */
+                        linfo("Denied connection to Controller: %s. Reason: Wrong Situation or Code format.", false, udp_packet.mac);
+                        sendUdp(udp_socket, createPacket(SUBS_REJ, serv_conf.mac, "00000000", "Subscription Denied: Wrong Situation or Code format."), &serv_conf.udp_address);
                     }
-                    
-                }else{ /* Reject Connection sending a [SUBS_REJ] packet*/
-                    linfo("Denied connection to Controller: %s. Reason: Wrong Situation or Code format.",false,udp_packet.mac);
-                    sendUdp(
-                        udp_socket,
-                        createPacket(SUBS_REJ,serv_conf.mac,"00000000","Subscription Denied: Wrong Situation or Code format."),
-                        &serv_conf.udp_address
-                    );
                 }
-            }else{ /* Reject Connection sending a [SUBS_REJ] packet*/
-                linfo("Denied connection to Controller: %s. Reason: Not listed in allowed Controllers file.",false,udp_packet.mac);
-                sendUdp(
-                    udp_socket,
-                    createPacket(SUBS_REJ,serv_conf.mac,"00000000","Subscription Denied: Not listed in allowed Controllers file."),
-                    &serv_conf.udp_address
-                );
+
+            }else { /* Reject Connection sending a [SUBS_REJ] packet */
+                linfo("Denied connection to Controller: %s. Reason: Not listed in allowed Controllers file.", false, udp_packet.mac);
+                sendUdp(udp_socket, createPacket(SUBS_REJ, serv_conf.mac, "00000000", "Subscription Denied: You are not listed in allowed Controllers file."), &serv_conf.udp_address);
             }
         }
 
