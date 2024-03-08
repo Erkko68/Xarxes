@@ -1,11 +1,14 @@
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <arpa/inet.h>
+/**
+ * @file server:conf.h
+ * @brief Functions to load and parse arguments for the server.
+ * 
+ * 
+ * @author Eric Bitria Ribes
+ * @version 0.1
+ * @date 2024-3-4
+ */
 
-#include "server_conf.h"
-#include "logs.h"
+#include "../commons.h"
 
 /**
  * @brief Returns a struct with the server configuration.

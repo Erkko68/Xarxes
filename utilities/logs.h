@@ -1,6 +1,6 @@
 /**
  * @file logs.h
- * @brief Functions for logging error, warning, and info messages.
+ * @brief Functions definitions for logging error, warning, and info messages.
  * 
  * This file contains functions definitions for logging error, warning, and info messages
  * with optional debug mode.
@@ -13,7 +13,7 @@
 #ifndef LOGS_H
 #define LOGS_H
 
-#include <stdbool.h>
+#include "commons.h"
 
 /* Boolean to set debug mode. */
 extern bool DEBUG;

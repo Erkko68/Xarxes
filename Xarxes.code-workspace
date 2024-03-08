@@ -18,7 +18,10 @@
 			"select.h": "c",
 			"cstdio": "c",
 			"pthread.h": "c",
-			"server_conf.h": "c"
+			"server_conf.h": "c",
+			"time.h": "c",
+			"subs_process.h": "c",
+			"commons.h": "c"
 		}
 	}
 }

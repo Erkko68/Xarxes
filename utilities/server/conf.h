@@ -1,6 +1,6 @@
 /**
  * @file server:conf.h
- * @brief Functions to load and parse arguments for the server.
+ * @brief Functions definitions to load and parse arguments for the server.
  * 
  * 
  * @author Eric Bitria Ribes
@@ -10,6 +10,8 @@
 
 #ifndef SERVER_CONF_H
 #define SERVER_CONF_H
+
+#include "../commons.h"
 
 /*
 Define struct for server config

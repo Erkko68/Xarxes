@@ -1,5 +1,5 @@
 /**
- * @file Controllers.h
+ * @file controllers.h
  * @brief Functions for saving, loading, and managing clients for the server.
  * 
  * 
@@ -8,13 +8,7 @@
  * @date 2024-3-8
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "logs.h"
-#include "pduudp.h"
-#include "controllers.h"
+#include "../commons.h"
 
 /**
  * @brief Reads controller data from a file and dynamically allocates memory for each controller struct.

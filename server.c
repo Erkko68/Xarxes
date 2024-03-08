@@ -1,150 +1,49 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
+#include "utilities/commons.h"
 
-#include <pthread.h>
-
-#include <unistd.h>
-#include <sys/select.h>
-#include <arpa/inet.h>
-
-#include "utilities/pduudp.h"
-#include "utilities/logs.h"
-#include "utilities/controllers.h"
-#include "utilities/server_conf.h"
-
-/*Define global mutex between threads*/
 pthread_mutex_t mutex;
 
-struct subsThreadArgs{
-    struct Server *srvConf;
-    struct Controller *controller;
-    int *socket;
-    char *situation;
-};
-
-void* subsProcess(void *args){
-    /*Cast arguments*/
+/* Main function */
+void* subsProcess(void *args) {
     struct subsThreadArgs *subsArgs = (struct subsThreadArgs*)args;
-
-    /*Connection with client params*/
     struct timeval timeout;
-    struct Packet subsPacket;
     struct sockaddr_in newAddress;
     int newUDPSocket;
-    socklen_t addrlen = sizeof(newAddress);
     fd_set readfds;
     int received;
-
-    /*SUBS_ACK data*/
     char rnd[9];
-    char newPort[6];
 
-    linfo("Starting a new thread for controller: %s.\n",false,subsArgs->controller->mac);
+    /* Log start of the thread */
+    linfo("Starting a new thread for controller: %s.\n", false, subsArgs->controller->mac);
 
-    /* Initialise new adress and port*/
+    /* Generate random identifier */
+    generateIdentifier(rnd);
 
-    memset(&newAddress, 0, sizeof(newAddress));
-    newAddress.sin_family = AF_INET; /* Set IPv4 */
-    newAddress.sin_addr.s_addr = htonl(INADDR_ANY); /* Accept any incoming address */
-    newAddress.sin_port = 0; /* Port number */
-    if ((newUDPSocket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-        lerror("Error creating TCP socket for controller: %s",true,subsArgs->controller->mac);
-    }
-    if (bind(newUDPSocket, (struct sockaddr*)&newAddress, sizeof(newAddress)) < 0) {
-        lerror("Error binding UDP socket",true);
-    }
+    /* Set up UDP socket */
+    newUDPSocket = setupUDPSocket(&newAddress);
 
-    /* Get the new Port number */
-    if (getsockname(newUDPSocket, (struct sockaddr*)&newAddress, &addrlen) < 0) {
-        lerror("Error getting UDP socket name",true);
-    }
+    /* Handle SUBS_ACK */
+    handleSubsAck(subsArgs, &newAddress, rnd);
 
-    /* [SUBS_ACK] */
-
-        /* Create packet*/
-        generateIdentifier(rnd);
-        /*Convert uint16_t to string*/
-        sprintf(newPort, "%d", ntohs(newAddress.sin_port));
-        subsPacket = createPacket(SUBS_ACK,subsArgs->srvConf->mac,rnd,newPort);
-
-        /* Send packet */
-        sendUdp(*subsArgs->socket,subsPacket,&subsArgs->srvConf->udp_address);
-    
-        /*Set client to WAIT_INFO Status and assign identifier*/
-        pthread_mutex_lock(&mutex); /*Lock variable*/
-        subsArgs->controller->data.status=WAIT_INFO;
-        pthread_mutex_unlock(&mutex); /*UNlock variable*/
-
-    /* [SUBS_ACK] */
-
-    /*Monitorize file descriptors*/
+    /* Initialize file descriptor set and timeout */
     FD_ZERO(&readfds);
     FD_SET(newUDPSocket, &readfds);
-    /*Set select timeouts*/
     timeout.tv_sec = 2;
     timeout.tv_usec = 0;
 
-    /* [SUBS_INFO] */
-
-    if((received=select(newUDPSocket + 1, &readfds, NULL, NULL, &timeout))<0){
-        lerror("Error initialising select for controller thread: %s",true,subsArgs->srvConf->mac);
-        
-    }else if(received==0){ /*No packet received*/
-
-        /*Set client to DISCONNECTED Status*/
-        pthread_mutex_lock(&mutex); /*Lock variable*/
-            subsArgs->controller->data.status=DISCONNECTED;
-        pthread_mutex_unlock(&mutex); /*Unlock variable*/
-
-        /*Close Socket connection*/
-        close(newUDPSocket);
-    }else{
-        char *tcp;
-        char *devices;
-        /*Expect a SUBS_INFO Packet*/
-        subsPacket = recvUdp(newUDPSocket,&newAddress);
-        
-        /*Lock strtok*/
+    /* Wait for SUBS_INFO or timeout */
+    if ((received = select(newUDPSocket + 1, &readfds, NULL, NULL, &timeout)) < 0) {
+        lerror("Error initializing select for controller thread: %s", true, subsArgs->srvConf->mac);
+    } else if (received == 0) {
+        /* Handle timeout */
         pthread_mutex_lock(&mutex);
-            tcp = strtok(subsPacket.data,",");
-            devices = strtok(NULL,",");
-        pthread_mutex_unlock(&mutex); 
-
-        /* Check Correct MAC, Identifier, TCP and devices */
-        if(strcmp(subsPacket.mac,subsArgs->controller->mac) == 0 && strcmp(subsPacket.rnd,rnd) == 0 && tcp != NULL && devices != NULL){
-            char tcpPort[6];
-            sprintf(tcpPort,"%d",subsArgs->srvConf->tcp);
-
-            /* [INFO_ACK] */
-            
-            sendUdp(newUDPSocket,createPacket(INFO_ACK,subsArgs->srvConf->mac,rnd,tcpPort),&newAddress);
-            
-            pthread_mutex_lock(&mutex); /*Lock variable*/
-                /* Store Controller DATA */
-                strcpy(subsArgs->controller->data.rand,rnd);
-                strcpy(subsArgs->controller->data.situation,subsArgs->situation);
-                /* Store devices */
-                storeDevices(devices,subsArgs->controller->data.devices,";");
-                /*Set SUBSCRIBED status*/
-                subsArgs->controller->data.status=SUBSCRIBED;
-            pthread_mutex_unlock(&mutex); /*Unlock variable*/
-            
-            /* [INFO_ACK] */
-
-        } else { /*Wrong SUBS_INFO data*/
-            linfo("Subscription ended for Controller: %s. Reason: Wrong Info in SUBS_INFO packet. Controller set to DISCONNECTED mode.", false, subsArgs->controller->mac);
-            sendUdp(newUDPSocket, createPacket(SUBS_REJ, subsArgs->srvConf->mac, "00000000", "Subscription Denied: Wrong Info in SUBS_INFO packet."), &newAddress);
-            
-            /*Set client to DISCONNECTED Status*/
-            pthread_mutex_lock(&mutex); /*Lock variable*/
-                subsArgs->controller->data.status=DISCONNECTED;
-            pthread_mutex_unlock(&mutex); /*Unlock variable*/
-        }
+            subsArgs->controller->data.status = DISCONNECTED;
+        pthread_mutex_unlock(&mutex);
+        /*Close socket*/
+        close(newUDPSocket);
+    } else {
+        /* Handle [SUBS_INFO] */
+        handleSubsInfo(subsArgs, &newAddress, rnd, newUDPSocket);
     }
-
-    /* [SUBS_INFO] */
 
     return NULL;
 }

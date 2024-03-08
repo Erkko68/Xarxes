@@ -1,8 +1,8 @@
 /**
- * @file pududp.h
+ * @file pududp.c
  * @brief Functions for encoding, decoding, and sending UDP packets.
  * 
- * This file contains function definitions for encoding and decoding UDP packets
+ * This file contains functions for encoding and decoding UDP packets
  * into byte arrays and sending data over UDP sockets.
  * 
  * @author Eric Bitria Ribes
@@ -10,40 +10,9 @@
  * @date 2024-3-4
  */
 
-#ifndef PDUUDP_H
-#define PDUUDP_H
+#include "../commons.h"
 
-#include <arpa/inet.h>
-
-/* Define struct for pdu_udp packet:
-   - type (1 byte)           : Represents the type of UDP packet.
-   - mac (13 byte)           : Represents the MAC address.
-   - rnd (9 byte)            : Represents random data.
-   - data (80 byte)          : Represents the data payload.
-*/
-struct Packet {
-    unsigned char type;
-    char mac[13];
-    char rnd[9];
-    char data[80];
-};
-
-/* Enum to represent different types of UDP packets:
-   - SUBS_REQ (0x00):
-   - SUBS_ACK (0x01):
-   - SUBS_REJ (0x02):
-   - SUBS_INFO (0x03):
-   - INFO_ACK (0x04): 
-   - SUBS_NACK (0x05): 
-*/
-typedef enum {
-    SUBS_REQ = 0x00,
-    SUBS_ACK = 0x01,
-    SUBS_REJ = 0x02,
-    SUBS_INFO = 0x03,
-    INFO_ACK = 0x04,
-    SUBS_NACK = 0x05
-} UDPType;
+#define PDUUDP 103
 
 /**
  * @brief Creates a Packet structure with the provided information.
@@ -60,7 +29,14 @@ typedef enum {
  * 
  * @return Returns a Packet structure initialized with the provided information.
  */
-struct Packet createPacket(const unsigned char type, const char *mac, const char *rnd, const char *data);
+struct Packet createPacket(const unsigned char type, const char *mac, const char *rnd, const char *data){
+    struct Packet packet;
+    packet.type = type;
+    strcpy(packet.mac,mac);
+    strcpy(packet.rnd,rnd);
+    strcpy(packet.data,data);
+    return packet;
+}
 
 /**
  * @brief Converts a Packet struct to a byte array.
@@ -73,7 +49,16 @@ struct Packet createPacket(const unsigned char type, const char *mac, const char
  * @param packet Pointer to the Packet struct to be converted.
  * @param bytes Pointer to the byte array where the Packet struct will be converted.
  */
-void udpToBytes(const struct Packet *packet, char *bytes);
+void udpToBytes(const struct Packet *packet, char *bytes) {
+    int offset = 0;
+    bytes[offset] = packet->type;
+    offset += sizeof(packet->type);
+    memcpy(bytes + offset, packet->mac, sizeof(packet->mac));
+    offset += sizeof(packet->mac);
+    memcpy(bytes + offset, packet->rnd, sizeof(packet->rnd));
+    offset += sizeof(packet->rnd);
+    memcpy(bytes + offset, packet->data, sizeof(packet->data));
+}
 
 /**
  * @brief Converts a byte array to a Packet struct.
@@ -86,7 +71,16 @@ void udpToBytes(const struct Packet *packet, char *bytes);
  * @param bytes Pointer to the byte array containing the data to be converted.
  * @param packet Pointer to the Packet struct where the byte array will be converted.
  */
-void bytesToUdp(const char *bytes, struct Packet *packet);
+void bytesToUdp(const char *bytes, struct Packet *packet) {
+    int offset = 0;
+    packet->type = bytes[offset];
+    offset += sizeof(packet->type);
+    memcpy(packet->mac, bytes + offset, sizeof(packet->mac));
+    offset += sizeof(packet->mac);
+    memcpy(packet->rnd, bytes + offset, sizeof(packet->rnd));
+    offset += sizeof(packet->rnd);
+    memcpy(packet->data, bytes + offset, sizeof(packet->data));
+}
 
 /**
  * @brief Sends data over a UDP socket to a specified address.
@@ -99,7 +93,15 @@ void bytesToUdp(const char *bytes, struct Packet *packet);
  * @param packet The Packet structure containing the data to be sent.
  * @param address Pointer to a sockaddr_in struct representing the destination address.
  */
-void sendUdp(const int socketFd, const struct Packet packet, const struct sockaddr_in *address);
+void sendUdp(const int socketFd, const struct Packet packet, const struct sockaddr_in *address) {
+    char data[PDUUDP];
+    socklen_t address_len = sizeof(struct sockaddr_in);
+    udpToBytes(&packet,data);
+
+    if (sendto(socketFd, data, sizeof(data), 0, (struct sockaddr *) address, address_len) < 0) {
+        lerror("Sendto failed", true);
+    }
+}
 
 /**
  * @brief Receives a UDP packet from a specified socket.
@@ -111,11 +113,24 @@ void sendUdp(const int socketFd, const struct Packet packet, const struct sockad
  * 
  * @param socketFd The file descriptor of the UDP socket.
  * @param address Pointer to a sockaddr_in struct where the source address of
- * the received packet will be stored.
+ *                the received packet will be stored.
  * 
  * @return Returns a Packet struct containing the received UDP packet.
  */
-struct Packet recvUdp(const int socketFd, struct sockaddr_in *address);
+struct Packet recvUdp(const int socketFd, struct sockaddr_in *address){
+    socklen_t address_len = sizeof(struct sockaddr_in); /* Get size of the address */
+    struct Packet pdu_udp; /* Init Packet struct */
+    char buffer[PDUUDP]; /* Init buffer */
+
+    /* Execute packet reception */
+    if (recvfrom(socketFd, buffer, PDUUDP, 0, (struct sockaddr *) address, &address_len) < 0) {
+        lerror("recvfrom failed", true);
+    }
+    /* Decode bytes into PDU_UDP packet */
+    bytesToUdp(buffer,&pdu_udp);
+
+    return pdu_udp;
+}
 
 /**
  * @brief Generates a random 8-digit number as a string.
@@ -126,6 +141,18 @@ struct Packet recvUdp(const int socketFd, struct sockaddr_in *address);
  * 
  * @param str A char array where the random number will be stored as string.
  */
-void generateIdentifier(char str[9]);
-
-#endif /* PDUUDP_H */
+void generateIdentifier(char str[9]) {
+    int random_num;
+    int quotient;
+    int i;
+    /* Set Seed */
+    srand(time(NULL));
+    /* Number between 0 and 99999999 */
+    random_num = rand() % 100000000;
+    quotient = random_num;
+    for (i = 7; i >= 0; i--) {
+        str[i] = '0' + quotient % 10;
+        quotient /= 10;
+    }
+    str[8] = '\0'; /*Null-terminate the string*/
+}

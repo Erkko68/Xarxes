@@ -10,13 +10,7 @@
  * @date 2024-3-4
  */
 
-#include "logs.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <time.h>
-#include <stdarg.h>
+#include "commons.h"
 
 /*Init debug mode setting*/
 bool DEBUG = false;
