@@ -42,7 +42,9 @@ typedef enum {
     SUBS_REJ = 0x02,
     SUBS_INFO = 0x03,
     INFO_ACK = 0x04,
-    SUBS_NACK = 0x05
+    SUBS_NACK = 0x05,
+    HELLO = 0x10,
+    HELLO_REJ = 0x11
 } UDPType;
 
 /**

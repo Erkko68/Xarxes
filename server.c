@@ -48,10 +48,6 @@ void* subsProcess(void *args) {
     return NULL;
 }
 
-void* helloProcess(void *args){
-    /* Process for HELLO sending and receiving packets */
-}
-
 int main(int argc, char *argv[]) {
     /*Create default server sockets file descriptors*/
     int tcp_socket, udp_socket;
@@ -123,7 +119,7 @@ int main(int argc, char *argv[]) {
         FD_ZERO(&readfds);
         FD_SET(tcp_socket, &readfds);
         FD_SET(udp_socket, &readfds);
-        /* Get max range of file descriptor to check */
+        /* Get max range of file descriptors to check */
         max_fd = (tcp_socket > udp_socket) ? tcp_socket : udp_socket;
 
         /*Start monitoring file descriptors*/
@@ -148,7 +144,7 @@ int main(int argc, char *argv[]) {
                     strtok(udp_packet.data, ","); /*Ignore first name*/
                     situation = strtok(udp_packet.data, ",");
 
-                    /* Check if packet has correct identifier, situation and name*/
+                    /* Check if packet has correct identifier and situation*/
                     if((strcmp(udp_packet.rnd, "00000000") == 0) && (strcmp(situation, "000000000000") != 0)) {
 
                         /* Start new thread for the new Client connection */
@@ -174,8 +170,43 @@ int main(int argc, char *argv[]) {
                         );
                     }
 
-                } else if (controllers[controllerIndex].data.status == SUBSCRIBED){
-                    /*HELLO PROCESS*/
+                } else if (controllers[controllerIndex].data.status == SUBSCRIBED || controllers[controllerIndex].data.status == SEND_HELLO){
+                    char* situation;
+                    char dataCpy[80]; /*Make copy in case we need to send it back*/
+                    strcpy(dataCpy,udp_packet.data);
+                    strtok(dataCpy, ","); /*Ignore first name*/
+                    situation = strtok(dataCpy, ",");
+
+                    /* Check correct packet data */
+                    if((strcmp(situation,controllers[controllerIndex].data.situation) == 0) && 
+                       (strcmp(udp_packet.mac, controllers[controllerIndex].mac) == 0) && 
+                       (strcmp(udp_packet.rnd, controllers[controllerIndex].data.rand) == 0)){
+
+                        linfo("Controller %s sent correct HELLO packet, sending response...",false,controllers[controllerIndex].mac);
+                        /*Send HELLO back*/
+                        sendUdp(udp_socket,
+                                createPacket(HELLO,serv_conf.mac,controllers[controllerIndex].data.rand,udp_packet.data),
+                                &serv_conf.udp_address
+                        );
+                        if(controllers[controllerIndex].data.status == SUBSCRIBED){
+                            linfo("Controller %s set to SEND_HELLO status.",false,controllers[controllerIndex].mac);
+                            pthread_mutex_lock(&mutex);
+                                controllers[controllerIndex].data.status = SEND_HELLO;
+                            pthread_mutex_unlock(&mutex);
+                        }
+
+                    } else {
+                        /*Send HELLO_REJ*/
+                        sendUdp(udp_socket,
+                                createPacket(HELLO_REJ,serv_conf.mac,controllers[controllerIndex].data.rand,""),
+                                &serv_conf.udp_address
+                        );
+                        linfo("Controller %s has sent incorrect HELLO packets, DISCONNECTING....",false,controllers[controllerIndex].mac);
+                        pthread_mutex_lock(&mutex);
+                            controllers[controllerIndex].data.status = DISCONNECTED;
+                        pthread_mutex_unlock(&mutex);
+                    }
+
                 } else {
                     linfo("Denied connection to Controller: %s. Reason: Invalid status.", false, udp_packet.mac);
                 }
