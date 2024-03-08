@@ -48,6 +48,10 @@ void* subsProcess(void *args) {
     return NULL;
 }
 
+void* helloProcess(void *args){
+    /* Process for HELLO sending and receiving packets */
+}
+
 int main(int argc, char *argv[]) {
     /*Create default server sockets file descriptors*/
     int tcp_socket, udp_socket;
@@ -131,19 +135,20 @@ int main(int argc, char *argv[]) {
         if (FD_ISSET(udp_socket, &readfds)) {
             /* Receive data and find the controller index, if it exists */
             int controllerIndex = 0;
-            linfo("Received data in file descriptor UDP.", false);
+            /*linfo("Received data in file descriptor UDP.", false);*/
             udp_packet = recvUdp(udp_socket, &serv_conf.udp_address);
 
+            /*Checks if incoming packet has allowed name and mac adress*/
             if ((controllerIndex = isAllowed(udp_packet, controllers, numControllers)) != -1) {
                 
                 /* Check if controller is disconnected */
                 if ((controllers[controllerIndex].data.status == DISCONNECTED)){
                     /*Get situation*/
                     char* situation;
-                    situation = strtok(udp_packet.data, ",");
+                    strtok(udp_packet.data, ","); /*Ignore first name*/
                     situation = strtok(udp_packet.data, ",");
 
-                    /* Check if packet has correct identifier and situation */
+                    /* Check if packet has correct identifier, situation and name*/
                     if((strcmp(udp_packet.rnd, "00000000") == 0) && (strcmp(situation, "000000000000") != 0)) {
 
                         /* Start new thread for the new Client connection */
@@ -163,13 +168,24 @@ int main(int argc, char *argv[]) {
                     } else { 
                         /* Reject Connection sending a [SUBS_REJ] packet */
                         linfo("Denied connection to Controller: %s. Reason: Wrong Situation or Code format.", false, udp_packet.mac);
-                        sendUdp(udp_socket, createPacket(SUBS_REJ, serv_conf.mac, "00000000", "Subscription Denied: Wrong Situation or Code format."), &serv_conf.udp_address);
+                        sendUdp(udp_socket, 
+                                createPacket(SUBS_REJ, serv_conf.mac, "00000000", "Subscription Denied: Wrong Situation or Code format."), 
+                                &serv_conf.udp_address
+                        );
                     }
+
+                } else if (controllers[controllerIndex].data.status == SUBSCRIBED){
+                    /*HELLO PROCESS*/
+                } else {
+                    linfo("Denied connection to Controller: %s. Reason: Invalid status.", false, udp_packet.mac);
                 }
 
             }else { /* Reject Connection sending a [SUBS_REJ] packet */
                 linfo("Denied connection to Controller: %s. Reason: Not listed in allowed Controllers file.", false, udp_packet.mac);
-                sendUdp(udp_socket, createPacket(SUBS_REJ, serv_conf.mac, "00000000", "Subscription Denied: You are not listed in allowed Controllers file."), &serv_conf.udp_address);
+                sendUdp(udp_socket, 
+                        createPacket(SUBS_REJ, serv_conf.mac, "00000000", "Subscription Denied: You are not listed in allowed Controllers file."), 
+                        &serv_conf.udp_address
+                );
             }
         }
 
