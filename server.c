@@ -2,7 +2,7 @@
 
 pthread_mutex_t mutex;
 
-/* Main function */
+/* Subscription Process Function */
 void* subsProcess(void *args) {
     struct subsThreadArgs *subsArgs = (struct subsThreadArgs*)args;
     struct timeval timeout;
@@ -49,7 +49,7 @@ void* subsProcess(void *args) {
 }
 
 int main(int argc, char *argv[]) {
-    /*Create Ints for sockets file descriptors*/
+    /*Create Ints for default server sockets file descriptors*/
     int tcp_socket, udp_socket;
     /*Struct for server configuration*/
     struct Server serv_conf;
