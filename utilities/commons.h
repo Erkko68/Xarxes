@@ -36,6 +36,7 @@
 #include "server/controllers.h"
 #include "server/conf.h"
 #include "server/subs_process.h"
+#include "server/commands.h"
 #include "logs.h"
 
 

@@ -253,14 +253,12 @@ int main(int argc, char *argv[]) {
 
         /* Server commands */
         if (FD_ISSET(STDIN_FILENO, &readfds)) {
-            char command[34]; /*33(Worst case scenario) set(3) + controller_name(8) + device(7) + (value int) 11 + \0(1) + spaces(3) */
+            char command[34]; /*34(Worst case scenario) = set(3) + controller_name(8) + device(7) + (value int) 11 + \0(1) + spaces(3) + \n(1)*/
             fgets(command, sizeof(command), stdin);
             
-            command[strcspn(command, "\n")] = '\0';
+            command[strcspn(command, "\n")] = '\0'; /*Cap max length*/
 
-            printf("You entered: %s\n", command);
-            
-            memset(command,0,sizeof(command));
+            processCommand(command);
         }
     }
 

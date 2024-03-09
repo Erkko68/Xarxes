@@ -1,5 +1,5 @@
 /**
- * @file server:conf.h
+ * @file server:conf.c
  * @brief Functions to load and parse arguments for the server.
  * 
  * 
