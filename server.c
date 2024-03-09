@@ -2,6 +2,106 @@
 
 pthread_mutex_t mutex;
 
+/* Structure for subscription thread arguments */
+struct subsThreadArgs {
+    struct Server *srvConf;     
+    struct Controller *controller;   
+    int *socket;                
+    char *situation;           
+};
+
+/* Function to set up the UDP socket and bind to a random port*/
+int setupUDPSocket(struct sockaddr_in *newAddress) {
+    int newUDPSocket;
+    socklen_t addrlen;
+
+    /* Initialize socket address */
+    memset(newAddress, 0, sizeof(*newAddress));
+    newAddress->sin_family = AF_INET; 
+    newAddress->sin_addr.s_addr = htonl(INADDR_ANY); 
+    newAddress->sin_port = 0; 
+
+    /* Create UDP socket */
+    if ((newUDPSocket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+        lerror("Error creating UDP socket.", true);
+    }
+    /* Bind the socket to the address */
+    if (bind(newUDPSocket, (struct sockaddr*)newAddress, sizeof(*newAddress)) < 0) {
+        lerror("Error binding UDP socket", true);
+    }
+
+    /* Obtain the port number assigned by the operating system */
+    addrlen = sizeof(*newAddress);
+    if (getsockname(newUDPSocket, (struct sockaddr*)newAddress, &addrlen) < 0) {
+        lerror("Error getting UDP socket name", true);
+    }
+
+    return newUDPSocket;
+}
+
+/* Process [SUBS_ACK] */
+void handleSubsAck(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddress, char *rnd) {
+    char newPort[6];
+    
+    /*Get new Port*/
+    sprintf(newPort, "%d", ntohs(newAddress->sin_port));
+
+    /* Create and send SUBS_ACK packet */
+    sendUdp(*subsArgs->socket, 
+            createPacket(SUBS_ACK, subsArgs->srvConf->mac, rnd, newPort), 
+            &subsArgs->srvConf->udp_address
+    );
+    /* Update controller status to WAIT_INFO */
+    pthread_mutex_lock(&mutex);
+        subsArgs->controller->data.status = WAIT_INFO;
+    pthread_mutex_unlock(&mutex);
+}
+
+/* Function to handle SUBS_INFO */
+void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddress, char *rnd, int newUDPSocket) {
+    char *tcp;
+    char *devices;
+    struct Packet subsPacket;
+
+    /* Receive SUBS_INFO packet */
+    subsPacket = recvUdp(newUDPSocket, newAddress);
+
+    /* Extract TCP and devices information */
+    pthread_mutex_lock(&mutex);
+        tcp = strtok(subsPacket.data, ",");
+        devices = strtok(NULL, ",");
+    pthread_mutex_unlock(&mutex);
+
+    /* Check if SUBS_INFO packet is valid */
+    if (strcmp(subsPacket.mac, subsArgs->controller->mac) == 0 && strcmp(subsPacket.rnd, rnd) == 0 && tcp != NULL && devices != NULL) {
+        char tcpPort[6];
+        sprintf(tcpPort, "%d", subsArgs->srvConf->tcp);
+
+        /* Create INFO_ACK packet */
+        sendUdp(newUDPSocket, createPacket(INFO_ACK, subsArgs->srvConf->mac, rnd, tcpPort), newAddress);
+
+        /* Save controller Data and set SUBSCRIBED status */
+        pthread_mutex_lock(&mutex);
+            strcpy(subsArgs->controller->data.rand, rnd);
+            strcpy(subsArgs->controller->data.situation, subsArgs->situation);
+            storeDevices(devices, subsArgs->controller->data.devices, ";");
+            subsArgs->controller->data.status = SUBSCRIBED;
+        pthread_mutex_unlock(&mutex);
+    } else {
+        /* Invalid SUBS_INFO packet, update status to DISCONNECTED */
+        linfo("Subscription ended for Controller: %s. Reason: Wrong Info in SUBS_INFO packet. DISCONNECTING controller...", false, subsArgs->controller->mac);
+        /*Send rejection packet*/
+        sendUdp(newUDPSocket, 
+                createPacket(SUBS_REJ, subsArgs->srvConf->mac, "00000000", "Subscription Denied: Wrong Info in SUBS_INFO packet."), 
+                newAddress
+        );
+
+        pthread_mutex_lock(&mutex);
+            subsArgs->controller->data.status = DISCONNECTED;
+        pthread_mutex_unlock(&mutex);
+    }
+}
+
 /* Subscription Process Thread */
 void* subsProcess(void *args) {
     struct subsThreadArgs *subsArgs = (struct subsThreadArgs*)args;
@@ -113,6 +213,7 @@ int main(int argc, char *argv[]) {
     
     while (1+1!=3) {
         struct subsThreadArgs subsArgs;
+        struct timeval timeout;
         struct Packet udp_packet;
 
         /* Init file descriptors readers */
@@ -122,8 +223,13 @@ int main(int argc, char *argv[]) {
         /* Get max range of file descriptors to check */
         max_fd = (tcp_socket > udp_socket) ? tcp_socket : udp_socket;
 
+        /* Set timeouts */
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 50; /*Number of microseconds the select waits for the file descriptors, 
+                                if set to 0 ms CPU usage increases to ~15%, at 50 ms is less than 1~*/
+
         /*Start monitoring file descriptors*/
-        if (select(max_fd + 1, &readfds, NULL, NULL, NULL) < 0) {
+        if (select(max_fd + 1, &readfds, NULL, NULL, &timeout) < 0) {
             lerror("Unexpected error in select.",true);
         }
         
@@ -183,6 +289,10 @@ int main(int argc, char *argv[]) {
                        (strcmp(udp_packet.rnd, controllers[controllerIndex].data.rand) == 0)){
 
                         linfo("Controller %s sent correct HELLO packet, sending response...",false,controllers[controllerIndex].mac);
+
+                        /* Reset last packet time stamp */
+                        controllers[controllerIndex].data.lastPacketTime = time(NULL);
+
                         /*Send HELLO back*/
                         sendUdp(udp_socket,
                                 createPacket(HELLO,serv_conf.mac,controllers[controllerIndex].data.rand,udp_packet.data),
@@ -201,7 +311,7 @@ int main(int argc, char *argv[]) {
                                 createPacket(HELLO_REJ,serv_conf.mac,controllers[controllerIndex].data.rand,""),
                                 &serv_conf.udp_address
                         );
-                        linfo("Controller %s has sent incorrect HELLO packets, DISCONNECTING....",false,controllers[controllerIndex].mac);
+                        linfo("Controller %s has sent incorrect HELLO packets, DISCONNECTING controller....",false,controllers[controllerIndex].mac);
                         pthread_mutex_lock(&mutex);
                             controllers[controllerIndex].data.status = DISCONNECTED;
                         pthread_mutex_unlock(&mutex);
@@ -217,6 +327,20 @@ int main(int argc, char *argv[]) {
                         createPacket(SUBS_REJ, serv_conf.mac, "00000000", "Subscription Denied: You are not listed in allowed Controllers file."), 
                         &serv_conf.udp_address
                 );
+            }
+        }
+
+        /*Update controllers last packet received timers*/
+        for (i = 0; i < numControllers; i++) {
+            if (controllers[i].data.lastPacketTime != 0) {
+                time_t current_time = time(NULL);
+                /* Check if 6 seconds have passed since the last packet */
+                if (current_time - controllers[i].data.lastPacketTime > 6) {
+
+                    linfo("Controller %s hasn't sent 3 consecutive packets. DISCONNECTING...",false,controllers[i].mac);
+                    controllers[i].data.status = DISCONNECTED; /* Set DISCONNECTED mode */
+                    controllers[i].data.lastPacketTime = 0; /* Reset last packet time */
+                }
             }
         }
 

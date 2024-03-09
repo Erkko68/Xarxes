@@ -21,6 +21,7 @@ struct ControllerInfo{
     char devices[10][8];
     unsigned short tcp; /*Range 0-65535*/
     unsigned short udp; /*Range 0-65535*/
+    time_t lastPacketTime;
 };
 
 /*Define struct to load authorized clients*/
