@@ -112,9 +112,8 @@ int main(int argc, char *argv[]) {
     pthread_mutex_init(&mutex, NULL);
     
     while (1+1!=3) {
-        struct subsThreadArgs subsArgs;
+        /*Define timeval struct for the select*/
         struct timeval timeout;
-        struct UDPPacket udp_packet;
 
         /* Init file descriptors readers */
         FD_ZERO(&readfds);
@@ -127,7 +126,7 @@ int main(int argc, char *argv[]) {
         /* Set timeouts */
         timeout.tv_sec = 0;
         timeout.tv_usec = 50; /*Number of microseconds the select waits for the file descriptors, 
-                                if set to 0 ms CPU usage increases to ~15%, at 50 ms is less than 1~*/
+                                if set to 0 ms CPU usage increases to ~15%, at 50 ms is less than ~1%*/
 
         /*Start monitoring file descriptors*/
         if (select(max_fd + 1, &readfds, NULL, NULL, &timeout) < 0) {
@@ -136,6 +135,8 @@ int main(int argc, char *argv[]) {
         
         /* Check if UDP file descriptor has received data */
         if (FD_ISSET(udp_socket, &readfds)) {
+            struct UDPPacket udp_packet;
+            struct subsThreadArgs subsArgs;
             /* Receive data and find the controller index, if it exists */
             int controllerIndex = 0;
             /*linfo("Received data in file descriptor UDP.", false);*/
@@ -268,6 +269,7 @@ int main(int argc, char *argv[]) {
             } else if (strcmp(command, "get") == 0 && args == 3) {
                 /* get command */
             } else if (strcmp(command, "quit") == 0 && args == 1) {
+                /*Close server*/
                 break;
             } else {
                 linfo("Invalid command. Usage:\n list (Show authorized controllers info.)\n set <controller-name> <device-name> <value> (sends info to the device)\n get <controller-name> <device-name> (Requests info to the device)\n quit (Quits server and closes all communications)",true);
