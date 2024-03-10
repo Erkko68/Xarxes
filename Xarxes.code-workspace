@@ -22,7 +22,8 @@
 			"time.h": "c",
 			"subs_process.h": "c",
 			"commons.h": "c",
-			"controllers.h": "c"
+			"controllers.h": "c",
+			"udp.h": "c"
 		}
 	}
 }

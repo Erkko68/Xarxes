@@ -36,7 +36,6 @@ Define client possible status
 
 client = {
     'status': status['DISCONNECTED'],
-    'file_path': "client.cfg",
     'Name': None,
     'Situation': None,
     'MAC': None,
@@ -49,7 +48,6 @@ client = {
 """
 Define client configurations dictionary
     'status': status['DISCONNECTED'],
-    'file_path': "client.cfg",
     'Name': None,
     'Situation': None,
     'MAC': None,

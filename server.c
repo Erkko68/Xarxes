@@ -2,8 +2,6 @@
 
 pthread_mutex_t mutex;
 
-/* SUBS PROCESS */
-
 /* Subscription Process Thread */
 void* subsProcess(void *args) {
     struct subsThreadArgs *subsArgs = (struct subsThreadArgs*)args;
@@ -49,8 +47,6 @@ void* subsProcess(void *args) {
 
     return NULL;
 }
-
-/* SUBS PROCESS END */
 
 int main(int argc, char *argv[]) {
     /*Create default server sockets file descriptors*/
@@ -118,7 +114,7 @@ int main(int argc, char *argv[]) {
     while (1+1!=3) {
         struct subsThreadArgs subsArgs;
         struct timeval timeout;
-        struct Packet udp_packet;
+        struct UDPPacket udp_packet;
 
         /* Init file descriptors readers */
         FD_ZERO(&readfds);
@@ -171,7 +167,7 @@ int main(int argc, char *argv[]) {
                         /* Reject Connection sending a [SUBS_REJ] packet */
                         linfo("Denied connection to Controller: %s. Reason: Wrong Situation or Code format.", false, udp_packet.mac);
                         sendUdp(udp_socket, 
-                                createPacket(SUBS_REJ, serv_conf.mac, "00000000", "Subscription Denied: Wrong Situation or Code format."), 
+                                createUDPPacket(SUBS_REJ, serv_conf.mac, "00000000", "Subscription Denied: Wrong Situation or Code format."), 
                                 &serv_conf.udp_address
                         );
                     }
@@ -195,7 +191,7 @@ int main(int argc, char *argv[]) {
 
                         /*Send HELLO back*/
                         sendUdp(udp_socket,
-                                createPacket(HELLO,serv_conf.mac,controllers[controllerIndex].data.rand,udp_packet.data),
+                                createUDPPacket(HELLO,serv_conf.mac,controllers[controllerIndex].data.rand,udp_packet.data),
                                 &serv_conf.udp_address
                         );
                         if(controllers[controllerIndex].data.status == SUBSCRIBED){
@@ -206,7 +202,7 @@ int main(int argc, char *argv[]) {
                     } else {
                         /*Send HELLO_REJ*/
                         sendUdp(udp_socket,
-                                createPacket(HELLO_REJ,serv_conf.mac,controllers[controllerIndex].data.rand,""),
+                                createUDPPacket(HELLO_REJ,serv_conf.mac,controllers[controllerIndex].data.rand,""),
                                 &serv_conf.udp_address
                         );
                         linfo("Controller %s has sent incorrect HELLO packets, DISCONNECTING controller....",false,controllers[controllerIndex].mac);
@@ -220,7 +216,7 @@ int main(int argc, char *argv[]) {
             }else { /* Reject Connection sending a [SUBS_REJ] packet */
                 linfo("Denied connection to Controller: %s. Reason: Not listed in allowed Controllers file.", false, udp_packet.mac);
                 sendUdp(udp_socket, 
-                        createPacket(SUBS_REJ, serv_conf.mac, "00000000", "Subscription Denied: You are not listed in allowed Controllers file."), 
+                        createUDPPacket(SUBS_REJ, serv_conf.mac, "00000000", "Subscription Denied: You are not listed in allowed Controllers file."), 
                         &serv_conf.udp_address
                 );
             }
@@ -253,12 +249,29 @@ int main(int argc, char *argv[]) {
 
         /* Server commands */
         if (FD_ISSET(STDIN_FILENO, &readfds)) {
-            char command[34]; /*34(Worst case scenario) = set(3) + controller_name(8) + device(7) + (value int) 11 + \0(1) + spaces(3) + \n(1)*/
-            fgets(command, sizeof(command), stdin);
+            char commandLine[34]; /*34(Worst case scenario) = set(3) + controller_name(8) + device(7) + (value int) 11 + \0(1) + spaces(3) + \n(1)*/
+            char command[5], controller[9], device[8], value[12];
+            int args;
+            fgets(commandLine, sizeof(commandLine), stdin);
             
-            command[strcspn(command, "\n")] = '\0'; /*Cap max length*/
+            commandLine[strcspn(commandLine, "\n")] = '\0';
 
-            processCommand(command);
+            sanitizeString(commandLine);
+
+            /*Get command and arguments*/
+            args = sscanf(commandLine, "%4s %8s %7s %11s", command, controller, device, value);
+
+            if (strcmp(command, "list") == 0 && args == 1) {
+                
+            } else if (strcmp(command, "set") == 0 && args == 4) {
+                /* set command */
+            } else if (strcmp(command, "get") == 0 && args == 3) {
+                /* get command */
+            } else if (strcmp(command, "quit") == 0 && args == 1) {
+                break;
+            } else {
+                linfo("Invalid command. Usage:\n list (Show authorized controllers info.)\n set <controller-name> <device-name> <value> (sends info to the device)\n get <controller-name> <device-name> (Requests info to the device)\n quit (Quits server and closes all communications)",true);
+            }
         }
     }
 

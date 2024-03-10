@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+
 #include <string.h>
 #include <stdbool.h>
 #include <stdarg.h>
@@ -33,6 +34,7 @@
 
 /*Own Libraries*/
 #include "pdu/udp.h"
+#include "pdu/tcp.h"
 #include "server/controllers.h"
 #include "server/conf.h"
 #include "server/subs_process.h"

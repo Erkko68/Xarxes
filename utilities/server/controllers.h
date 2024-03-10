@@ -12,7 +12,7 @@
 #define CONTROLLERS_H
 
 #include "../commons.h"
-
+ 
 /*Define struct for controller info*/
 struct ControllerInfo{
     unsigned char status;
@@ -70,7 +70,7 @@ int loadControllers(struct Controller **controllers, const char *filename);
  * @param numControllers The number of controllers in the array.
  * @return Returns 1 if the controller is allowed, 0 otherwise.
  */
-int isAllowed(const struct Packet packet, struct Controller *controllers, int numControllers);
+int isAllowed(const struct UDPPacket packet, struct Controller *controllers, int numControllers);
 
 /**
  * @brief Tokenizes and stores an string into diferent devices names.

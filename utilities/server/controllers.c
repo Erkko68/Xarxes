@@ -30,7 +30,7 @@ int loadControllers(struct Controller **controllers, const char *filename) {
     if (file == NULL) {
         lerror("Could not open filedescriptor while reading controllers.",true);
     }
-
+ 
     while (fgets(line, sizeof(line), file) != NULL) {
         char name[9];
         char mac[13];
@@ -73,7 +73,7 @@ int loadControllers(struct Controller **controllers, const char *filename) {
  * @param numControllers The number of controllers in the array.
  * @return Returns 1 if the controller is allowed, 0 otherwise.
  */
-int isAllowed(const struct Packet packet, struct Controller *controllers, int numControllers) {
+int isAllowed(const struct UDPPacket packet, struct Controller *controllers, int numControllers) {
     int i;
     /* Make a copy of packet data*/
     char data_copy[80];

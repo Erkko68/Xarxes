@@ -10,6 +10,16 @@
 
 #include "../commons.h"
 
+void remove_spaces(char *str) {
+    int count = 0;
+    int i;
+    for (i = 0; str[i]; i++) {
+        if (str[i] != ' ' && str[i] != '\t')
+            str[count++] = str[i];
+    }
+    str[count] = '\0';
+}
+
 /**
  * @brief Returns a struct with the server configuration.
  * 
@@ -28,19 +38,23 @@ struct Server serverConfig(const char *filename) {
         lerror("Error opening file",false);
     }
     while (fgets(buffer, sizeof(buffer), file) != NULL) {
+        char *key;
+        char *value;
+        /* Remove all spaces from the line */
+        remove_spaces(buffer);
         /*String tokenizer (Split key/value)*/
-        char *key = strtok(buffer, "=");
-        char *value = strtok(NULL, "\n");
-        /*Set config, CAUTTION: We increase the value pointer by one to point the string after the space */
-        if (strcmp(key, "Name ") == 0) {
-            strncpy(srv.name, value+1, sizeof(srv.name) - 1); 
+        key = strtok(buffer, "=");
+        value = strtok(NULL, "\n");
+        
+        if (strcmp(key, "Name") == 0) {
+            strncpy(srv.name, value, sizeof(srv.name) - 1); 
             srv.name[sizeof(srv.name) - 1] = '\0';
-        } else if (strcmp(key, "MAC ") == 0) {
-            strncpy(srv.mac, value+1, sizeof(srv.mac) - 1);
+        } else if (strcmp(key, "MAC") == 0) {
+            strncpy(srv.mac, value, sizeof(srv.mac) - 1);
             srv.mac[sizeof(srv.mac) - 1] = '\0'; 
-        } else if (strcmp(key, "TCP-Port ") == 0) {
+        } else if (strcmp(key, "TCP-Port") == 0) {
             srv.tcp = atoi(value);
-        } else if (strcmp(key, "UDP-Port ") == 0) {
+        } else if (strcmp(key, "UDP-Port") == 0) {
             srv.udp = atoi(value);
         }
     }

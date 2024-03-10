@@ -62,7 +62,7 @@ void handleSubsAck(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddre
 
     /* Create and send SUBS_ACK packet */
     sendUdp(*subsArgs->socket, 
-            createPacket(SUBS_ACK, subsArgs->srvConf->mac, rnd, newPort), 
+            createUDPPacket(SUBS_ACK, subsArgs->srvConf->mac, rnd, newPort), 
             &subsArgs->srvConf->udp_address
     );
     /* Update controller status to WAIT_INFO */
@@ -84,7 +84,7 @@ void handleSubsAck(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddre
 void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddress, char *rnd, int newUDPSocket) {
     char *tcp;
     char *devices;
-    struct Packet subsPacket;
+    struct UDPPacket subsPacket;
 
     /* Receive SUBS_INFO packet */
     subsPacket = recvUdp(newUDPSocket, newAddress);
@@ -94,14 +94,14 @@ void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddr
         tcp = strtok(subsPacket.data, ",");
         devices = strtok(NULL, ",");
     pthread_mutex_unlock(&mutex);
-
+ 
     /* Check if SUBS_INFO packet is valid */
     if (strcmp(subsPacket.mac, subsArgs->controller->mac) == 0 && strcmp(subsPacket.rnd, rnd) == 0 && tcp != NULL && devices != NULL) {
         char tcpPort[6];
         sprintf(tcpPort, "%d", subsArgs->srvConf->tcp);
 
         /* Create INFO_ACK packet */
-        sendUdp(newUDPSocket, createPacket(INFO_ACK, subsArgs->srvConf->mac, rnd, tcpPort), newAddress);
+        sendUdp(newUDPSocket, createUDPPacket(INFO_ACK, subsArgs->srvConf->mac, rnd, tcpPort), newAddress);
 
         /* Save controller Data and set SUBSCRIBED status */
         pthread_mutex_lock(&mutex);
@@ -115,7 +115,7 @@ void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddr
         linfo("Subscription ended for Controller: %s. Reason: Wrong Info in SUBS_INFO packet. Controller set to DISCONNECTED mode.", false, subsArgs->controller->mac);
         /*Send rejection packet*/
         sendUdp(newUDPSocket, 
-                createPacket(SUBS_REJ, subsArgs->srvConf->mac, "00000000", "Subscription Denied: Wrong Info in SUBS_INFO packet."), 
+                createUDPPacket(SUBS_REJ, subsArgs->srvConf->mac, "00000000", "Subscription Denied: Wrong Info in SUBS_INFO packet."), 
                 newAddress
         );
 
