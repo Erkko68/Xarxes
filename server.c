@@ -126,7 +126,8 @@ int main(int argc, char *argv[]) {
         /* Set timeouts */
         timeout.tv_sec = 0;
         timeout.tv_usec = 50; /*Number of microseconds the select waits for the file descriptors, 
-                                if set to 0 ms CPU usage increases to ~15%, at 50 ms is less than ~1%*/
+                                if set to 0 ms CPU usage increases to ~15%, at 50 ms is less than ~1%.
+                                If set to high values affects timeout accuracy for the HELLO packets*/
 
         /*Start monitoring file descriptors*/
         if (select(max_fd + 1, &readfds, NULL, NULL, &timeout) < 0) {
@@ -250,17 +251,18 @@ int main(int argc, char *argv[]) {
 
         /* Server commands */
         if (FD_ISSET(STDIN_FILENO, &readfds)) {
-            char commandLine[34]; /*34(Worst case scenario) = set(3) + controller_name(8) + device(7) + (value int) 11 + \0(1) + spaces(3) + \n(1)*/
-            char command[5], controller[9], device[8], value[12];
+            char commandLine[30]; /*30(Worst case scenario) = set(3) + controller_name(8) + device(7) + (value) 7 + \0(1) + spaces(3) + \n(1)*/
+            char command[5], controller[9], device[8], value[7];
             int args;
-            fgets(commandLine, sizeof(commandLine), stdin);
-            
-            commandLine[strcspn(commandLine, "\n")] = '\0';
 
-            sanitizeString(commandLine);
+            if (fgets(commandLine, sizeof(commandLine), stdin) == NULL) {
+                lerror("Fgets failed",true);
+            }
+
+            sanitizeString(commandLine[strcspn(commandLine, "\n")] = '\0');
 
             /*Get command and arguments*/
-            args = sscanf(commandLine, "%4s %8s %7s %11s", command, controller, device, value);
+            args = sscanf(commandLine, "%4s %8s %7s %7s", command, controller, device, value);
 
             if (strcmp(command, "list") == 0 && args == 1) {
                 
