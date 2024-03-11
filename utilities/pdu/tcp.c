@@ -6,7 +6,7 @@
  * into byte arrays and sending data over TCP sockets.
  *  
  * @author Eric Bitria Ribes
- * @version 0.1
+ * @version 0.2
  * @date 2024-3-4
  */
 
@@ -91,6 +91,26 @@ struct TCPPacket bytesToTcp(const char *bytes) {
     offset += sizeof(packet.value);
     memcpy(packet.data, bytes + offset, sizeof(packet.data));
     return packet;
+}
+
+/**
+ * @brief Sends a TCP packet over the specified socket.
+ *
+ * This function converts the given TCPPacket struct to bytes using the tcpToBytes function,
+ * then sends the resulting data over the specified socket. It ensures that the entire data
+ * is sent by looping until all bytes are sent. If sending fails, it logs an error using the
+ * lerror function and terminates the program if specified.
+ * 
+ * @param socketFd The file descriptor of the socket to send data over.
+ * @param packet The TCPPacket struct containing the data to send.
+ */
+void sendTcp(const int socketFd, const struct TCPPacket packet) {
+    char data[PDUTCP];
+    tcpToBytes(&packet,data);
+
+    if (send(socketFd, data, sizeof(data), 0) < 0) {
+        lerror("send failed", true);
+    }
 }
 
 /**

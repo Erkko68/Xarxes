@@ -9,8 +9,4 @@
  */
 #include "../commons.h"
 
-void processCommand(char* commandLine);
-
-
-
 void sanitizeString(char *str);

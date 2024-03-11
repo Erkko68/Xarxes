@@ -6,7 +6,7 @@
  * into byte arrays and sending data over TCP sockets.
  *  
  * @author Eric Bitria Ribes
- * @version 0.1
+ * @version 0.2
  * @date 2024-3-4
  */
 
@@ -85,6 +85,14 @@ void tcpToBytes(const struct TCPPacket *packet, char *bytes);
  */
 
 struct TCPPacket bytesToTcp(const char *bytes);
+
+/**
+ * @brief Sends a TCP packet over the specified socket.
+ * 
+ * @param socketFd The file descriptor of the socket to send data over.
+ * @param packet The TCPPacket struct containing the data to send.
+ */
+void sendTcp(const int socketFd, const struct TCPPacket packet);
 
 /**
  * @brief Receives a TCP packet from a socket and converts it to a TCPPacket struct.

@@ -133,7 +133,15 @@ void* storeData(void* args){
         printf("Allowed\n");
     } else {
         linfo("Denied connection to Controller: %s. Reason: Not listed in allowed Controllers file.", false, tcp_packet.mac);
-
+        sendTcp(dataArgs->client_socket,  /*HAS TO BE THE OPENED PORT*/
+                createTCPPacket(DATA_NACK,
+                                dataArgs->servConf.mac,
+                                dataArgs->controllers[controllerIndex].data.rand,
+                                tcp_packet.device,
+                                tcp_packet.value,
+                                ""
+                                )
+                );
     }
     
     return NULL;
@@ -276,6 +284,7 @@ int main(int argc, char *argv[]) {
             pthread_t tcpThread;
 
             threadArgs.controllers = controllers;
+            threadArgs.servConf = serv_conf;
 
             if ((threadArgs.client_socket = accept(tcp_socket, (struct sockaddr *)&threadArgs.clientAddr, &client_addr_len)) == -1) {
                 lerror("Unexpected error while receiving TCP connection.",true);
