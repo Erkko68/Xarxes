@@ -84,6 +84,18 @@ void tcpToBytes(const struct TCPPacket *packet, char *bytes);
  * @return Returns a TCPPacket struct with the data decoded from the byte array.
  */
 
-struct TCPPacket bytesTotcp(const char *bytes) ;
+struct TCPPacket bytesToTcp(const char *bytes);
+
+/**
+ * @brief Receives a TCP packet from a socket and converts it to a TCPPacket struct.
+ * 
+ * @param socketFd The file descriptor of the socket from which to receive the packet.
+ * 
+ * @return Returns a TCPPacket struct with the data decoded from the received byte array.
+ */
+struct TCPPacket recvTcp(const int socketFd);
+
+/* Debug */
+void printTCPPacket(struct TCPPacket packet);
 
 #endif /* PDUTCP_H */

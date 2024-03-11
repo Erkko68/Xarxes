@@ -92,6 +92,31 @@ int isAllowed(const struct UDPPacket packet, struct Controller *controllers, int
     }
     return -1;
 }
+/**
+ * @brief Checks if a TCP packet is allowed.
+ *
+ * This function iterates through the provided array of controllers and compares the MAC address and
+ * random data (rnd) of the given TCP packet with each controller. If a matching controller is found,
+ * the function returns the index of the controller in the array. Otherwise, it returns -1 indicating
+ * that the packet is not allowed.
+ * 
+ * @param packet The TCPPacket struct representing the TCP packet to check.
+ * @param controllers Pointer to the array of Controller structs containing allowed controllers.
+ * @param numControllers The number of controllers in the array.
+ * @return Returns the index of the allowed controller if found, otherwise returns -1.
+ */
+int isTCPAllowed(const struct TCPPacket packet, struct Controller *controllers, int numControllers) {
+    int i;
+    /*Iterate over allowed controllers*/
+    for (i = 0; i < numControllers; i++) {
+        if (strcmp(packet.mac, controllers[i].mac) == 0 && 
+            strcmp(packet.rnd, controllers[i].data.rand) == 0) {
+            /*Return index*/
+            return i;
+        }
+    }
+    return -1;
+}
 
 
 /**

@@ -76,7 +76,7 @@ void tcpToBytes(const struct TCPPacket *packet, char *bytes){
  * 
  * @return Returns a TCPPacket struct with the data decoded from the byte array.
  */
-struct TCPPacket bytesTotcp(const char *bytes) {
+struct TCPPacket bytesToTcp(const char *bytes) {
     struct TCPPacket packet;
     int offset = 0;
     packet.type = bytes[offset];
@@ -93,3 +93,36 @@ struct TCPPacket bytesTotcp(const char *bytes) {
     return packet;
 }
 
+/**
+ * @brief Receives a TCP packet from a socket and converts it to a TCPPacket struct.
+ *
+ * This function receives a TCP packet from the specified socket 'socketFd'.
+ * The received packet is expected to be in byte array format, representing
+ * a TCPPacket struct. It decodes the byte array and populates the fields
+ * of a TCPPacket struct accordingly. The received byte array is decoded
+ * using the bytesToTcp() function.
+ * 
+ * @param socketFd The file descriptor of the socket from which to receive the packet.
+ * 
+ * @return Returns a TCPPacket struct with the data decoded from the received byte array.
+ */
+struct TCPPacket recvTcp(const int socketFd){
+    char buffer[PDUTCP]; /* Init buffer */
+
+    /* Execute packet reception */
+    if (recv(socketFd, buffer, PDUTCP,0) < 0) {
+        lerror("TCP recv failed", true);
+    }
+    /* Decode  and return bytes into PDU_UDP packet */
+    return bytesToTcp(buffer);
+}
+
+/* Debug */
+void printTCPPacket(struct TCPPacket packet) {
+    printf("Type: %u\n", packet.type);
+    printf("MAC: %s\n", packet.mac);
+    printf("RND: %s\n", packet.rnd);
+    printf("Device: %s\n", packet.device);
+    printf("Value: %s\n", packet.value);
+    printf("Data: %s\n", packet.data);
+}
