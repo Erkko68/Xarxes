@@ -18,9 +18,9 @@
 /* Define struct for TCP packet:
    - type (1 byte)           : Represents the type of TCP packet.
    - mac (13 byte)           : Represents the MAC address.
+   - rnd (9 byte)            : Represents random data.
    - char device[8];         : Represents the device identifier.
    - char value[7];          : Repesentes the value associated to the device.
-   - rnd (9 byte)            : Represents random data.
    - data (80 byte)          : Represents the data payload.
 */
 struct TCPPacket {

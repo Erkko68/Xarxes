@@ -80,25 +80,28 @@ void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *control
 }
 
 /*Mantain periodic communication*/
-void handleHello(struct UDPPacket *udp_packet, struct Controller *controller, int udp_socket, struct Server *serv_conf) {
+void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int udp_socket, struct Server *serv_conf) {
     char* situation;
     char dataCpy[80]; /* Make copy in case we need to send it back */
-    strcpy(dataCpy, udp_packet->data);
+    strcpy(dataCpy, udp_packet.data);
 
     strtok(dataCpy, ","); /* Ignore first name */
     situation = strtok(NULL, ",");
 
+    pthread_mutex_lock(&mutex);
+    printf("Expe: %s,%s,%s\n",controller->data.situation,controller->mac,controller->data.rand);
+    printf("Sent: %s,%s,%s\n",situation,udp_packet.mac,udp_packet.rnd);
     /* Check correct packet data */
     if((strcmp(situation, controller->data.situation) == 0) && 
-       (strcmp(udp_packet->mac, controller->mac) == 0) && 
-       (strcmp(udp_packet->rnd, controller->data.rand) == 0)){
+       (strcmp(udp_packet.mac, controller->mac) == 0) && 
+       (strcmp(udp_packet.rnd, controller->data.rand) == 0)){
 
         /* Reset last packet time stamp */
         controller->data.lastPacketTime = time(NULL);
 
         /* Send HELLO back */
         sendUdp(udp_socket,
-                createUDPPacket(HELLO, serv_conf->mac, controller->data.rand, udp_packet->data),
+                createUDPPacket(HELLO, serv_conf->mac, controller->data.rand, udp_packet.data),
                 &serv_conf->udp_address
         );
         if(controller->data.status == SUBSCRIBED){
@@ -115,6 +118,7 @@ void handleHello(struct UDPPacket *udp_packet, struct Controller *controller, in
         linfo("Controller %s has sent incorrect HELLO packets, DISCONNECTING controller....",false, controller->mac);
         controller->data.status = DISCONNECTED;
     }
+    pthread_mutex_unlock(&mutex);
 }
 
 /*Subscription Functions END*/
@@ -124,28 +128,49 @@ void handleHello(struct UDPPacket *udp_packet, struct Controller *controller, in
 void* storeData(void* args){
     struct dataThreadArgs *dataArgs = (struct dataThreadArgs*)args;
     struct TCPPacket tcp_packet;
+
     int controllerIndex;
+    unsigned char packetType;
+    char msg[80];
 
     /*Get Packet*/
     tcp_packet = recvTcp(dataArgs->client_socket);
 
-    if((controllerIndex = isTCPAllowed(tcp_packet,dataArgs->controllers,dataArgs->numControllers)) != -1){
-        printf("Allowed\n");
+    if((controllerIndex = isTCPAllowed(tcp_packet, dataArgs->controllers, dataArgs->numControllers)) != -1){ /*Check allowed controller*/
+        if(dataArgs->controllers[controllerIndex].data.status == SEND_HELLO){ /*Check correct status*/
+            if(hasDevice(tcp_packet.device,&dataArgs->controllers[controllerIndex]) != -1){ /*Check if controller has device*/
+                linfo("Controller %s updated %s device value: %s", false, tcp_packet.mac,tcp_packet.device,tcp_packet.value);
+                packetType = DATA_ACK;
+            } else {
+                sprintf(msg,"Controller doesn't have %s device.",tcp_packet.device);
+                linfo("Denied connection to Controller: %s. Reason: Controller is doesn't have %s device.", false, tcp_packet.mac,tcp_packet.device);
+                packetType = DATA_NACK;
+            }
+        } else {
+            sprintf(msg,"Controller is not in SEND_HELLO status.");
+            linfo("Denied connection to Controller: %s. Reason: Controller is not in SEND_HELLO status.", false, tcp_packet.mac);
+            packetType = DATA_NACK;
+        }
     } else {
+        sprintf(msg,"Not listed in allowed Controllers file.");
         linfo("Denied connection to Controller: %s. Reason: Not listed in allowed Controllers file.", false, tcp_packet.mac);
-        sendTcp(dataArgs->client_socket,  /*HAS TO BE THE OPENED PORT*/
-                createTCPPacket(DATA_NACK,
-                                dataArgs->servConf.mac,
-                                dataArgs->controllers[controllerIndex].data.rand,
-                                tcp_packet.device,
-                                tcp_packet.value,
-                                ""
-                                )
-                );
+        packetType = DATA_NACK;
     }
-    
-    return NULL;
+    printf("%s,%s,%s,%s\n",dataArgs->servConf->mac,dataArgs->controllers[controllerIndex].data.rand,tcp_packet.device,tcp_packet.value);
+
+    sendTcp(dataArgs->client_socket, 
+            createTCPPacket(packetType,
+                            dataArgs->servConf->mac,
+                            dataArgs->controllers[controllerIndex].data.rand,
+                            tcp_packet.device,
+                            tcp_packet.value,
+                            msg
+                            )
+            );
+
+    return 0;
 }
+
 
 int main(int argc, char *argv[]) {
     /*Create default server sockets file descriptors*/
@@ -242,16 +267,23 @@ int main(int argc, char *argv[]) {
             udp_packet = recvUdp(udp_socket, &serv_conf.udp_address);
 
             /*Checks if incoming packet has allowed name and mac adress*/
-            if ((controllerIndex = isAllowed(udp_packet, controllers, numControllers)) != -1) {
+            if ((controllerIndex = isUDPAllowed(udp_packet, controllers, numControllers)) != -1) {
                 
                 if ((controllers[controllerIndex].data.status == DISCONNECTED)){
                     handleDisconnected(&udp_packet, &controllers[controllerIndex], udp_socket, &serv_conf);
 
                 } else if (controllers[controllerIndex].data.status == SUBSCRIBED || controllers[controllerIndex].data.status == SEND_HELLO){
-                    handleHello(&udp_packet, &controllers[controllerIndex], udp_socket, &serv_conf);
+                    handleHello(udp_packet, &controllers[controllerIndex], udp_socket, &serv_conf);
 
                 } else {
                     linfo("Denied connection to Controller: %s. Reason: Invalid status.", false, udp_packet.mac);
+                    sendUdp(udp_socket, 
+                        createUDPPacket(SUBS_REJ, serv_conf.mac, "00000000", "Subscription Denied: Invalid Status."), 
+                        &serv_conf.udp_address
+                    );
+                    pthread_mutex_lock(&mutex);
+                        controllers[i].data.lastPacketTime = 0; /* Reset last packet time */
+                    pthread_mutex_unlock(&mutex);
                 }
 
             }else { /* Reject Connection sending a [SUBS_REJ] packet */
@@ -260,6 +292,9 @@ int main(int argc, char *argv[]) {
                         createUDPPacket(SUBS_REJ, serv_conf.mac, "00000000", "Subscription Denied: You are not listed in allowed Controllers file."), 
                         &serv_conf.udp_address
                 );
+                pthread_mutex_lock(&mutex);
+                    controllers[i].data.lastPacketTime = 0; /* Reset last packet time */
+                pthread_mutex_unlock(&mutex);
             }
         }
 
@@ -269,10 +304,11 @@ int main(int argc, char *argv[]) {
                 time_t current_time = time(NULL);
                 /* Check if 6 seconds have passed since the last packet */
                 if (current_time - controllers[i].data.lastPacketTime > 6) {
-
-                    linfo("Controller %s hasn't sent 3 consecutive packets. DISCONNECTING...",false,controllers[i].mac);
-                    controllers[i].data.status = DISCONNECTED; /* Set DISCONNECTED mode */
-                    controllers[i].data.lastPacketTime = 0; /* Reset last packet time */
+                    pthread_mutex_lock(&mutex);
+                        linfo("Controller %s hasn't sent 3 consecutive packets. DISCONNECTING...",false,controllers[i].mac);
+                        controllers[i].data.status = DISCONNECTED; /* Set DISCONNECTED mode */
+                        controllers[i].data.lastPacketTime = 0; /* Reset last packet time */
+                    pthread_mutex_unlock(&mutex);
                 }
             }
         }
@@ -280,11 +316,12 @@ int main(int argc, char *argv[]) {
         /* Check if the TCP file descriptor has received data */   
         if (FD_ISSET(tcp_socket, &readfds)) {
             struct dataThreadArgs threadArgs;
-            socklen_t client_addr_len = sizeof(threadArgs.clientAddr);
+            socklen_t client_addr_len = sizeof(struct sockaddr_in);
             pthread_t tcpThread;
 
             threadArgs.controllers = controllers;
-            threadArgs.servConf = serv_conf;
+            threadArgs.servConf = &serv_conf;
+            threadArgs.numControllers = numControllers;
 
             if ((threadArgs.client_socket = accept(tcp_socket, (struct sockaddr *)&threadArgs.clientAddr, &client_addr_len)) == -1) {
                 lerror("Unexpected error while receiving TCP connection.",true);

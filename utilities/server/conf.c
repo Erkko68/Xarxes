@@ -52,9 +52,9 @@ struct Server serverConfig(const char *filename) {
         } else if (strcmp(key, "MAC") == 0) {
             strncpy(srv.mac, value, sizeof(srv.mac) - 1);
             srv.mac[sizeof(srv.mac) - 1] = '\0'; 
-        } else if (strcmp(key, "TCP-Port") == 0) {
+        } else if (strcmp(key, "TCP-port") == 0) {
             srv.tcp = atoi(value);
-        } else if (strcmp(key, "UDP-Port") == 0) {
+        } else if (strcmp(key, "UDP-port") == 0) {
             srv.udp = atoi(value);
         }
     }

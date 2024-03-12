@@ -73,7 +73,7 @@ int loadControllers(struct Controller **controllers, const char *filename) {
  * @param numControllers The number of controllers in the array.
  * @return Returns 1 if the controller is allowed, 0 otherwise.
  */
-int isAllowed(const struct UDPPacket packet, struct Controller *controllers, int numControllers) {
+int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers, int numControllers) {
     int i;
     /* Make a copy of packet data*/
     char data_copy[80];
@@ -130,7 +130,7 @@ int isTCPAllowed(const struct TCPPacket packet, struct Controller *controllers, 
  * @param deviceArray Pointer to the array where tokens will be stored.
  * @param delimiter The delimiter used to tokenize the string.
  */
-void storeDevices(char *devices, char (*deviceArray)[8], char *delimiter) {
+void storeDevices(char *devices, char deviceArray[][8], char *delimiter) {
     int i = 0;
     char *device;
     device = strtok(devices, delimiter);
@@ -140,4 +140,26 @@ void storeDevices(char *devices, char (*deviceArray)[8], char *delimiter) {
         device = strtok(NULL, delimiter);
         i++;
     }
+    strncpy(deviceArray[i],"NULL",sizeof(deviceArray[i]) - 1);
+}
+
+
+/**
+ * @brief Checks if a device exists in the deviceArray.
+ *
+ * This function iterates through the deviceArray to check if the specified device exists in the array.
+ * It compares each device name with the given device until a match is found or the end of the array is reached.
+ * 
+ * @param device The device name to search for.
+ * @param deviceArray Pointer to the array containing device names.
+ * @return If the device is found, returns the index of the device in the array. Otherwise, returns -1.
+ */
+int hasDevice(const char *device, const struct Controller *controller) {
+    int i;
+    for (i = 0; strcmp(device,"NULL") != 0; i++) {
+        if (strcmp(device, controller->data.devices[i]) == 0) {
+            return i;
+        }
+    }
+    return -1;
 }

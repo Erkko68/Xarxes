@@ -105,6 +105,7 @@ void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddr
 
         /* Save controller Data and set SUBSCRIBED status */
         pthread_mutex_lock(&mutex);
+            subsArgs->controller->data.tcp = atoi(tcp);
             strcpy(subsArgs->controller->data.rand, rnd);
             strcpy(subsArgs->controller->data.situation, subsArgs->situation);
             storeDevices(devices, subsArgs->controller->data.devices, ";");

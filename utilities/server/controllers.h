@@ -18,7 +18,7 @@ struct ControllerInfo{
     unsigned char status;
     char situation[13];
     char rand[9];
-    char devices[10][8];
+    char devices[11][8];
     unsigned short tcp; /*Range 0-65535*/
     unsigned short udp; /*Range 0-65535*/
     time_t lastPacketTime;
@@ -70,7 +70,7 @@ int loadControllers(struct Controller **controllers, const char *filename);
  * @param numControllers The number of controllers in the array.
  * @return Returns 1 if the controller is allowed, 0 otherwise.
  */
-int isAllowed(const struct UDPPacket packet, struct Controller *controllers, int numControllers);
+int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers, int numControllers);
 
 
 /**
@@ -96,5 +96,16 @@ int isTCPAllowed(const struct TCPPacket packet, struct Controller *controllers, 
  */
 void storeDevices(char *devices, char (*deviceArray)[8], char *delimiter);
 
+/**
+ * @brief Checks if a device exists in the deviceArray.
+ *
+ * This function iterates through the deviceArray to check if the specified device exists in the array.
+ * It compares each device name with the given device until a match is found or the end of the array is reached.
+ * 
+ * @param device The device name to search for.
+ * @param deviceArray Pointer to the array containing device names.
+ * @return If the device is found, returns the index of the device in the array. Otherwise, returns -1.
+ */
+int hasDevice(const char *device, const struct Controller *controller);
 
 #endif /*CONTROLLERS_H*/
