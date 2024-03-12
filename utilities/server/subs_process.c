@@ -107,6 +107,7 @@ void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddr
         pthread_mutex_lock(&mutex);
             linfo("Controller: %s successfully subscribed. Status et to SUBSCRIBED.", false, subsArgs->controller->mac);
             subsArgs->controller->data.tcp = atoi(tcp);
+            inet_ntop(AF_INET, &(newAddress->sin_addr), subsArgs->controller->data.ip, INET_ADDRSTRLEN);
             strcpy(subsArgs->controller->data.rand, rnd);
             strcpy(subsArgs->controller->data.situation, subsArgs->situation);
             storeDevices(devices, subsArgs->controller->data.devices, ";");
@@ -122,7 +123,7 @@ void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddr
         );
 
         pthread_mutex_lock(&mutex);
-            subsArgs->controller->data.status = DISCONNECTED;
+            disconnectController(subsArgs->controller);
         pthread_mutex_unlock(&mutex);
     }
 }

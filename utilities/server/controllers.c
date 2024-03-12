@@ -34,6 +34,7 @@ int loadControllers(struct Controller **controllers, const char *filename) {
     while (fgets(line, sizeof(line), file) != NULL) {
         char name[9];
         char mac[13];
+        char device[] = "NULL";
         if (sscanf(line, "%9[^,],%13s", name, mac) == 2) {
             /*Dynamically reallocate memory for additional controllers*/
             *controllers = (struct Controller*) realloc(*controllers, (numControllers + 1) * sizeof(struct Controller));
@@ -45,7 +46,8 @@ int loadControllers(struct Controller **controllers, const char *filename) {
             strncpy((*controllers)[numControllers].mac, mac, sizeof((*controllers)[numControllers].mac));
             /* Set to zeros any other value */
             memset(&((*controllers)[numControllers].data), 0, sizeof((*controllers)[numControllers].data));
-            
+
+            strncpy((*controllers)[numControllers].data.devices[0], device, sizeof((*controllers)[numControllers].data.devices[0]));
             /*Set disconected status*/
             (*controllers)[numControllers].data.status=DISCONNECTED;
             /*Increase number of controllers*/
@@ -162,4 +164,23 @@ int hasDevice(const char *device, const struct Controller *controller) {
         }
     }
     return -1;
+}
+
+/**
+ * @brief Disconnects a controller and sets its status to DISCONNECTED.
+ *
+ * This function resets the data of the provided controller to 0's and sets its status to DISCONNECTED.
+ * 
+ * @param controller Pointer to the controller struct to disconnect.
+ */
+void disconnectController(struct Controller *controller) {
+    memset(controller->data.situation, 0, sizeof(controller->data.situation));
+    memset(controller->data.rand, 0, sizeof(controller->data.rand));
+    memset(controller->data.devices, 0, sizeof(controller->data.devices));
+    memset(controller->data.ip, 0, sizeof(controller->data.ip));
+    strcpy(controller->data.devices[0],"NULL");
+    controller->data.tcp = 0;
+    controller->data.udp = 0;
+    controller->data.lastPacketTime = 0;
+    controller->data.status = DISCONNECTED;
 }

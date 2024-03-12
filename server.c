@@ -39,7 +39,7 @@ void* subsProcess(void *args) {
         /* Handle timeout */
         linfo("Controller %s hasn't sent SUBS_INFO in the last 2 seconds. Disconnecting...",false,subsArgs->controller->mac);
         pthread_mutex_lock(&mutex);
-            subsArgs->controller->data.status = DISCONNECTED;
+            disconnectController(subsArgs->controller);
         pthread_mutex_unlock(&mutex);
     } else {
         /* Handle [SUBS_INFO] */
@@ -121,7 +121,7 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
                     &serv_conf->udp_address
             );
             linfo("Controller %s has sent incorrect HELLO packets, DISCONNECTING controller....",false, controller->mac);
-            controller->data.status = DISCONNECTED;
+            disconnectController(controller);
         }
     pthread_mutex_unlock(&mutex);
 }
@@ -166,25 +166,25 @@ void* storeData(void* args){
                         sprintf(msg,"Couldn't store %s data %s.",tcp_packet.device,result);
                         lwarning("Couldn't store %s data from Controller: %s. Reason: %s", false,tcp_packet.device,tcp_packet.mac,result);
                         packetType = DATA_NACK;
-                        dataArgs->controllers[controllerIndex].data.status=DISCONNECTED;
+                        disconnectController(&dataArgs->controllers[controllerIndex]);
                     }
                 } else {
                     sprintf(msg,"Controller doesn't have %s device.",tcp_packet.device);
                     linfo("Denied connection to Controller: %s. Reason: Controller is doesn't have %s device.", false, tcp_packet.mac,tcp_packet.device);
                     packetType = DATA_NACK;
-                    dataArgs->controllers[controllerIndex].data.status=DISCONNECTED;
+                    disconnectController(&dataArgs->controllers[controllerIndex]);
                 }
             } else {
                 sprintf(msg,"Controller is not in SEND_HELLO status.");
                 linfo("Denied connection to Controller: %s. Reason: Controller is not in SEND_HELLO status.", false, tcp_packet.mac);
                 packetType = DATA_NACK;
-                dataArgs->controllers[controllerIndex].data.status=DISCONNECTED;
+                disconnectController(&dataArgs->controllers[controllerIndex]);
             }
         } else {
             sprintf(msg,"Not listed in allowed Controllers file.");
             linfo("Denied connection to Controller: %s. Reason: Not listed in allowed Controllers file.", false, tcp_packet.mac);
             packetType = DATA_NACK;
-            dataArgs->controllers[controllerIndex].data.status=DISCONNECTED;
+            disconnectController(&dataArgs->controllers[controllerIndex]);
         }
 
         /* Send response */
@@ -336,8 +336,7 @@ int main(int argc, char *argv[]) {
                 if (current_time - controllers[i].data.lastPacketTime > 6) {
                     pthread_mutex_lock(&mutex);
                         linfo("Controller %s hasn't sent 3 consecutive packets. DISCONNECTING...",false,controllers[i].mac);
-                        controllers[i].data.status = DISCONNECTED; /* Set DISCONNECTED mode */
-                        controllers[i].data.lastPacketTime = 0; /* Reset last packet time */
+                        disconnectController(&controllers[i]);
                     pthread_mutex_unlock(&mutex);
                 }
             }
@@ -389,7 +388,7 @@ int main(int argc, char *argv[]) {
             args = sscanf(commandLine, "%4s %8s %7s %7s", command, controller, device, value);
 
             if (strcmp(command, "list") == 0 && args == 1) {
-                
+                printList(controllers,numControllers);
             } else if (strcmp(command, "set") == 0 && args == 4) {
                 /* set command */
             } else if (strcmp(command, "get") == 0 && args == 3) {

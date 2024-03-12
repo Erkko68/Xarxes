@@ -21,6 +21,7 @@ struct ControllerInfo{
     char devices[11][8];
     unsigned short tcp; /*Range 0-65535*/
     unsigned short udp; /*Range 0-65535*/
+    char ip[INET_ADDRSTRLEN];
     time_t lastPacketTime;
 };
 
@@ -107,5 +108,15 @@ void storeDevices(char *devices, char [][8], char *delimiter);
  * @return If the device is found, returns the index of the device in the array. Otherwise, returns -1.
  */
 int hasDevice(const char *device, const struct Controller *controller);
+
+
+/**
+ * @brief Disconnects a controller and sets its status to DISCONNECTED.
+ *
+ * This function resets the data of the provided controller to 0's and sets its status to DISCONNECTED.
+ * 
+ * @param controller Pointer to the controller struct to disconnect.
+ */
+void disconnectController(struct Controller *controller) ;
 
 #endif /*CONTROLLERS_H*/
