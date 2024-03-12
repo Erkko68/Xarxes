@@ -50,6 +50,7 @@ void* subsProcess(void *args) {
     return NULL;
 }
 
+/* Start Subscription */
 void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *controller, int udp_socket, struct Server *serv_conf) {
     char* situation;
     strtok(udp_packet->data, ","); /* Ignore first name */
@@ -125,8 +126,7 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
 
 /*Subscription Functions END*/
 
-/* TCP Reception */
-
+/* TCP SEND_DATA Reception */
 void* storeData(void* args){
     struct dataThreadArgs *dataArgs = (struct dataThreadArgs*)args;
     struct TCPPacket tcp_packet;
@@ -143,41 +143,58 @@ void* storeData(void* args){
         lwarning("Received unexpected packet by controller %s. Expected [SEND_DATA].",false,tcp_packet.mac);
         return NULL;
     }
-
-    if((controllerIndex = isTCPAllowed(tcp_packet, dataArgs->controllers, dataArgs->numControllers)) != -1){ /*Check allowed controller*/
-        if(dataArgs->controllers[controllerIndex].data.status == SEND_HELLO){ /*Check correct status*/
-            if(hasDevice(tcp_packet.device,&dataArgs->controllers[controllerIndex]) != -1){ /*Check if controller has device*/
-                linfo("Controller %s updated %s. Value: %s", false, tcp_packet.mac,tcp_packet.device,tcp_packet.value);
-                packetType = DATA_ACK;
-                save(tcp_packet,dataArgs->controllers[controllerIndex]);
+    pthread_mutex_lock(&mutex);
+        /*Check allowed controller*/
+        if((controllerIndex = isTCPAllowed(tcp_packet, dataArgs->controllers, dataArgs->numControllers)) != -1){ 
+            /*Check correct status*/
+            if(dataArgs->controllers[controllerIndex].data.status == SEND_HELLO){
+                /*Check if controller has device*/
+                if(hasDevice(tcp_packet.device,&dataArgs->controllers[controllerIndex]) != -1){
+                    const char *result;
+                    /*Check error msg*/
+                    if ((result = save(tcp_packet,dataArgs->controllers[controllerIndex])) == NULL){
+                        linfo("Controller %s updated %s. Value: %s", false, tcp_packet.mac,tcp_packet.device,tcp_packet.value);
+                        packetType = DATA_ACK;
+                    } else {
+                        sprintf(msg,"Couldn't store %s data %s.",tcp_packet.device,result);
+                        lwarning("Couldn't store %s data from Controller: %s. Reason: %s", false,tcp_packet.device,tcp_packet.mac,result);
+                        packetType = DATA_NACK;
+                        dataArgs->controllers[controllerIndex].data.status=DISCONNECTED;
+                    }
+                    
+                } else {
+                    sprintf(msg,"Controller doesn't have %s device.",tcp_packet.device);
+                    linfo("Denied connection to Controller: %s. Reason: Controller is doesn't have %s device.", false, tcp_packet.mac,tcp_packet.device);
+                    packetType = DATA_NACK;
+                    dataArgs->controllers[controllerIndex].data.status=DISCONNECTED;
+                }
             } else {
-                sprintf(msg,"Controller doesn't have %s device.",tcp_packet.device);
-                linfo("Denied connection to Controller: %s. Reason: Controller is doesn't have %s device.", false, tcp_packet.mac,tcp_packet.device);
+                sprintf(msg,"Controller is not in SEND_HELLO status.");
+                linfo("Denied connection to Controller: %s. Reason: Controller is not in SEND_HELLO status.", false, tcp_packet.mac);
                 packetType = DATA_NACK;
+                dataArgs->controllers[controllerIndex].data.status=DISCONNECTED;
             }
         } else {
-            sprintf(msg,"Controller is not in SEND_HELLO status.");
-            linfo("Denied connection to Controller: %s. Reason: Controller is not in SEND_HELLO status.", false, tcp_packet.mac);
+            sprintf(msg,"Not listed in allowed Controllers file.");
+            linfo("Denied connection to Controller: %s. Reason: Not listed in allowed Controllers file.", false, tcp_packet.mac);
             packetType = DATA_NACK;
+            dataArgs->controllers[controllerIndex].data.status=DISCONNECTED;
         }
-    } else {
-        sprintf(msg,"Not listed in allowed Controllers file.");
-        linfo("Denied connection to Controller: %s. Reason: Not listed in allowed Controllers file.", false, tcp_packet.mac);
-        packetType = DATA_NACK;
-    }
 
-    /* Send response */
-    sendTcp(dataArgs->client_socket, 
-            createTCPPacket(packetType,
-                            dataArgs->servConf->mac,
-                            dataArgs->controllers[controllerIndex].data.rand,
-                            tcp_packet.device,
-                            tcp_packet.value,
-                            msg
-                            )
-            );
-    /*Close comunication*/
-    close(dataArgs->client_socket);
+        /* Send response */
+        sendTcp(dataArgs->client_socket, 
+                createTCPPacket(packetType,
+                                dataArgs->servConf->mac,
+                                dataArgs->controllers[controllerIndex].data.rand,
+                                tcp_packet.device,
+                                tcp_packet.value,
+                                msg
+                                )
+                );
+        /*Close comunication*/
+        close(dataArgs->client_socket);
+
+    pthread_mutex_unlock(&mutex);
 
     return NULL;
 }

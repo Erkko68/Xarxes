@@ -61,6 +61,6 @@ void linfo(const char *str, bool override, ...);
  * @param controller The Controller struct containing information about the controller.
  * @return 0 if successful, -1 if failed to open/create file.
  */
-int save(struct TCPPacket packet, struct Controller controller);
+const char *save(struct TCPPacket packet, struct Controller controller);
 
 #endif /* LOGS_H */
