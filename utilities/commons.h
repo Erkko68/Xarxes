@@ -1,6 +1,6 @@
 /**
  * @file commons.h
- * @brief Common header file including essential system libraries and project-specific headers.
+ * @brief Common header file including system libraries and project-specific headers.
  * 
  * 
  * This header file serves as a central location to include commonly used libraries and
@@ -8,8 +8,8 @@
  * source files within the project.
  * 
  * @author Eric Bitria Ribes
- * @version 0.1
- * @date 2024-3-4
+ * @version 0.2
+ * @date 2024-3-12
  */
 
 #ifndef COMMONS_H

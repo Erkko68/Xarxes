@@ -3,11 +3,11 @@
  * @brief Functions for logging error, warning, and info messages.
  * 
  * This file contains functions for logging error, warning, and info messages
- * with optional debug mode.
+ * with optional debug mode. Also has data storing for the controllers info.
  * 
  * @author Eric Bitria Ribes
- * @version 0.1
- * @date 2024-3-4
+ * @version 0.3
+ * @date 2024-3-12
  */
 
 #include "commons.h"
@@ -127,7 +127,7 @@ const char* getTCPName(enum TCPType type) {
  * @return 0 if successful, -1 if failed to open/create file.
  */
 const char* save(struct TCPPacket packet, struct Controller controller) {
-    char filename[50], date_str[9], time_str[9];
+    char filename[50], date_str[9];
     FILE *file;
     time_t now;
     struct tm *local_time;
@@ -148,10 +148,9 @@ const char* save(struct TCPPacket packet, struct Controller controller) {
 
     /* Save data */
     strftime(date_str, sizeof(date_str), "%d-%m-%y", local_time);
-    strftime(time_str, sizeof(time_str), "%H:%M:%S", local_time);
 
     /* Write data to file */
-    if (fprintf(file, "%s,%s,%s,%s,%s\n", date_str, time_str, getTCPName(packet.type), packet.device, packet.value) < 0) {
+    if (fprintf(file, "%s,%s,%s,%s,%s\n", date_str, get_current_time(), getTCPName(packet.type), packet.device, packet.value) < 0) {
         return strerror(errno);
     }
 

@@ -1,10 +1,10 @@
 /**
- * @file subs_process.h
+ * @file subs_process.c
  * @brief Functions for the Server Subscription Process.
  * 
  * @author Eric Bitria Ribes
- * @version 0.3
- * @date 2024-3-8
+ * @version 0.4
+ * @date 2024-3-12
  */
 
 #include "../commons.h"
@@ -67,6 +67,7 @@ void handleSubsAck(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddre
     );
     /* Update controller status to WAIT_INFO */
     pthread_mutex_lock(&mutex);
+        linfo("Sent [SUBS_ACK]. Controller %s set to WAIT_INFO status...",false,subsArgs->controller->mac);
         subsArgs->controller->data.status = WAIT_INFO;
     pthread_mutex_unlock(&mutex);
 }
@@ -102,9 +103,9 @@ void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddr
 
         /* Create INFO_ACK packet */
         sendUdp(newUDPSocket, createUDPPacket(INFO_ACK, subsArgs->srvConf->mac, rnd, tcpPort), newAddress);
-
         /* Save controller Data and set SUBSCRIBED status */
         pthread_mutex_lock(&mutex);
+            linfo("Controller: %s successfully subscribed. Status et to SUBSCRIBED.", false, subsArgs->controller->mac);
             subsArgs->controller->data.tcp = atoi(tcp);
             strcpy(subsArgs->controller->data.rand, rnd);
             strcpy(subsArgs->controller->data.situation, subsArgs->situation);
@@ -113,7 +114,7 @@ void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddr
         pthread_mutex_unlock(&mutex);
     } else {
         /* Invalid SUBS_INFO packet, update status to DISCONNECTED */
-        linfo("Subscription ended for Controller: %s. Reason: Wrong Info in SUBS_INFO packet. Controller set to DISCONNECTED mode.", false, subsArgs->controller->mac);
+        linfo("Subscription process ended for Controller: %s. Reason: Wrong Info in SUBS_INFO packet. Disconnecting...", false, subsArgs->controller->mac);
         /*Send rejection packet*/
         sendUdp(newUDPSocket, 
                 createUDPPacket(SUBS_REJ, subsArgs->srvConf->mac, "00000000", "Subscription Denied: Wrong Info in SUBS_INFO packet."), 

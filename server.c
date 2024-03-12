@@ -37,15 +37,17 @@ void* subsProcess(void *args) {
         lerror("Error initializing select during subscription process thread by client: %s", true, subsArgs->srvConf->mac);
     } else if (received == 0) {
         /* Handle timeout */
+        linfo("Controller %s hasn't sent SUBS_INFO in the last 2 seconds. Disconnecting...",false,subsArgs->controller->mac);
         pthread_mutex_lock(&mutex);
             subsArgs->controller->data.status = DISCONNECTED;
         pthread_mutex_unlock(&mutex);
-        /*Close socket*/
-        close(newUDPSocket);
     } else {
         /* Handle [SUBS_INFO] */
         handleSubsInfo(subsArgs, &newAddress, rnd, newUDPSocket);
     }
+
+    /*Close socket*/
+    close(newUDPSocket);
 
     return NULL;
 }
@@ -157,7 +159,7 @@ void* storeData(void* args){
                 if(hasDevice(tcp_packet.device,&dataArgs->controllers[controllerIndex]) != -1){
                     const char *result;
                     /*Check error msg*/
-                    if ((result = save(tcp_packet,dataArgs->controllers[controllerIndex])) == NULL){
+        /*---->*/    if ((result = save(tcp_packet,dataArgs->controllers[controllerIndex])) == NULL){
                         linfo("Controller %s updated %s. Value: %s", false, tcp_packet.mac,tcp_packet.device,tcp_packet.value);
                         packetType = DATA_ACK;
                     } else {
@@ -166,7 +168,6 @@ void* storeData(void* args){
                         packetType = DATA_NACK;
                         dataArgs->controllers[controllerIndex].data.status=DISCONNECTED;
                     }
-                    
                 } else {
                     sprintf(msg,"Controller doesn't have %s device.",tcp_packet.device);
                     linfo("Denied connection to Controller: %s. Reason: Controller is doesn't have %s device.", false, tcp_packet.mac,tcp_packet.device);
