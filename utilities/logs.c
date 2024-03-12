@@ -11,7 +11,6 @@
  */
 
 #include "commons.h"
-#include <errno.h>
 
 /*Init debug mode setting*/
 bool DEBUG = false;

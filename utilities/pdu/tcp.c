@@ -127,11 +127,20 @@ void sendTcp(const int socketFd, const struct TCPPacket packet) {
  * @return Returns a TCPPacket struct with the data decoded from the received byte array.
  */
 struct TCPPacket recvTcp(const int socketFd){
+    int val;
     char buffer[PDUTCP]; /* Init buffer */
 
     /* Execute packet reception */
-    if (recv(socketFd, buffer, PDUTCP,0) < 0) {
-        lerror("TCP recv failed", true);
+    val = recv(socketFd, buffer, PDUTCP,0);
+    if ( val == 0) {
+        lwarning("Host disconnected.",false);
+        return createTCPPacket(0xF,"","","","","");
+    } else if ( val < 0 ) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK){
+            return createTCPPacket(0xF,"","","","","");
+        } else {
+            lerror("TCP recv failed", true);
+        }
     }
     /* Decode  and return bytes into PDU_UDP packet */
     return bytesToTcp(buffer);

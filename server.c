@@ -137,6 +137,11 @@ void* storeData(void* args){
 
     /*Get Packet*/
     tcp_packet = recvTcp(dataArgs->client_socket);
+    if(tcp_packet.type == 0xF){
+        lwarning("Haven't received data trough TCP socket in 3 seconds. Clossing socket...",false);
+        close(dataArgs->client_socket);
+        return NULL;
+    }
 
     /*Check its SEND_DATA*/
     if(tcp_packet.type != SEND_DATA){
@@ -212,7 +217,6 @@ int main(int argc, char *argv[]) {
     /*Initialise file descriptors select*/
     fd_set readfds;
     int max_fd;
-    
     /*Get config and controllers file name*/
     char *config_file;
     char *controllers_file;
@@ -340,6 +344,9 @@ int main(int argc, char *argv[]) {
 
         /* Check if the TCP file descriptor has received data */   
         if (FD_ISSET(tcp_socket, &readfds)) {
+            /* TCP timeout settings */
+            struct timeval tcpTimeout;
+            /* Thread args */
             struct dataThreadArgs threadArgs;
             struct sockaddr_in clientAddr;
             socklen_t client_addr_len = sizeof(struct sockaddr_in);
@@ -351,6 +358,13 @@ int main(int argc, char *argv[]) {
 
             if ((threadArgs.client_socket = accept(tcp_socket, (struct sockaddr *)&clientAddr, &client_addr_len)) == -1) {
                 lerror("Unexpected error while receiving TCP connection.",true);
+            }
+
+            /*Set TCP socket max recv time*/
+            tcpTimeout.tv_sec = 3;
+            tcpTimeout.tv_usec = 0;
+            if(setsockopt(threadArgs.client_socket,SOL_SOCKET,SO_RCVTIMEO,(const char*)&tcpTimeout,sizeof(tcpTimeout)) < 0){
+                lerror("Unexpected error when setting TCP socket settings",true);
             }
 
             if(pthread_create(&tcpThread, NULL, storeData, (void *)&threadArgs) < 0){
