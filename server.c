@@ -208,9 +208,6 @@ int main(int argc, char *argv[]) {
     /*Array of structs for allowed clients in memory*/
     struct Controller *controllers = NULL;
     int numControllers;
-    /*Initialise variables Threads*/
-    pthread_t *threads = NULL;
-    int num_threads = 0;
     int i;
     /*Initialise file descriptors select*/
     fd_set readfds;
@@ -390,17 +387,9 @@ int main(int argc, char *argv[]) {
             }
         }
     }
-
-    /*Join threads when finished*/
-    for(i=0;i<num_threads;i++){
-        pthread_join(threads[i], NULL);
-    }
     
     /*Free controllers*/
     free(controllers);
-    /*Free threads*/
-    free(threads);
-
     /*Close the socket file descriptors*/
     close(udp_socket);
     close(tcp_socket);
