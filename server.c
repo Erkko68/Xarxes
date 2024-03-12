@@ -15,7 +15,7 @@ void* subsProcess(void *args) {
     char rnd[9];
 
     /* Log start of the thread */
-    linfo("Starting new subscription process for controller: %s.\n", false, subsArgs->controller->mac);
+    linfo("Starting new subscription process for controller: %s.", false, subsArgs->controller->mac);
 
     /* Generate random identifier */
     generateIdentifier(rnd);
@@ -88,36 +88,38 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
     strtok(dataCpy, ","); /* Ignore first name */
     situation = strtok(NULL, ",");
 
+    /* DEBUG
+        printf("Expe: %s,%s,%s\n",controller->data.situation,controller->mac,controller->data.rand);
+        printf("Sent: %s,%s,%s\n",situation,udp_packet.mac,udp_packet.rnd);
+    */
     pthread_mutex_lock(&mutex);
-    printf("Expe: %s,%s,%s\n",controller->data.situation,controller->mac,controller->data.rand);
-    printf("Sent: %s,%s,%s\n",situation,udp_packet.mac,udp_packet.rnd);
-    /* Check correct packet data */
-    if((strcmp(situation, controller->data.situation) == 0) && 
-       (strcmp(udp_packet.mac, controller->mac) == 0) && 
-       (strcmp(udp_packet.rnd, controller->data.rand) == 0)){
+        /* Check correct packet data */
+        if((strcmp(situation, controller->data.situation) == 0) && 
+        (strcmp(udp_packet.mac, controller->mac) == 0) && 
+        (strcmp(udp_packet.rnd, controller->data.rand) == 0)){
+            
+            /* Reset last packet time stamp */
+            controller->data.lastPacketTime = time(NULL);
 
-        /* Reset last packet time stamp */
-        controller->data.lastPacketTime = time(NULL);
+            /* Send HELLO back */
+            sendUdp(udp_socket,
+                    createUDPPacket(HELLO, serv_conf->mac, controller->data.rand, udp_packet.data),
+                    &serv_conf->udp_address
+            );
+            if(controller->data.status == SUBSCRIBED){
+                linfo("Controller %s set to SEND_HELLO status.",false, controller->mac);
+                controller->data.status = SEND_HELLO;
+            }
 
-        /* Send HELLO back */
-        sendUdp(udp_socket,
-                createUDPPacket(HELLO, serv_conf->mac, controller->data.rand, udp_packet.data),
-                &serv_conf->udp_address
-        );
-        if(controller->data.status == SUBSCRIBED){
-            linfo("Controller %s set to SEND_HELLO status.",false, controller->mac);
-            controller->data.status = SEND_HELLO;
+        } else {
+            /* Send HELLO_REJ */
+            sendUdp(udp_socket,
+                    createUDPPacket(HELLO_REJ, serv_conf->mac, controller->data.rand, ""),
+                    &serv_conf->udp_address
+            );
+            linfo("Controller %s has sent incorrect HELLO packets, DISCONNECTING controller....",false, controller->mac);
+            controller->data.status = DISCONNECTED;
         }
-
-    } else {
-        /* Send HELLO_REJ */
-        sendUdp(udp_socket,
-                createUDPPacket(HELLO_REJ, serv_conf->mac, controller->data.rand, ""),
-                &serv_conf->udp_address
-        );
-        linfo("Controller %s has sent incorrect HELLO packets, DISCONNECTING controller....",false, controller->mac);
-        controller->data.status = DISCONNECTED;
-    }
     pthread_mutex_unlock(&mutex);
 }
 
@@ -136,11 +138,18 @@ void* storeData(void* args){
     /*Get Packet*/
     tcp_packet = recvTcp(dataArgs->client_socket);
 
+    /*Check its SEND_DATA*/
+    if(tcp_packet.type != SEND_DATA){
+        lwarning("Received unexpected packet by controller %s. Expected [SEND_DATA].",false,tcp_packet.mac);
+        return NULL;
+    }
+
     if((controllerIndex = isTCPAllowed(tcp_packet, dataArgs->controllers, dataArgs->numControllers)) != -1){ /*Check allowed controller*/
         if(dataArgs->controllers[controllerIndex].data.status == SEND_HELLO){ /*Check correct status*/
             if(hasDevice(tcp_packet.device,&dataArgs->controllers[controllerIndex]) != -1){ /*Check if controller has device*/
-                linfo("Controller %s updated %s device value: %s", false, tcp_packet.mac,tcp_packet.device,tcp_packet.value);
+                linfo("Controller %s updated %s. Value: %s", false, tcp_packet.mac,tcp_packet.device,tcp_packet.value);
                 packetType = DATA_ACK;
+                save(tcp_packet,dataArgs->controllers[controllerIndex]);
             } else {
                 sprintf(msg,"Controller doesn't have %s device.",tcp_packet.device);
                 linfo("Denied connection to Controller: %s. Reason: Controller is doesn't have %s device.", false, tcp_packet.mac,tcp_packet.device);
@@ -156,8 +165,8 @@ void* storeData(void* args){
         linfo("Denied connection to Controller: %s. Reason: Not listed in allowed Controllers file.", false, tcp_packet.mac);
         packetType = DATA_NACK;
     }
-    printf("%s,%s,%s,%s\n",dataArgs->servConf->mac,dataArgs->controllers[controllerIndex].data.rand,tcp_packet.device,tcp_packet.value);
 
+    /* Send response */
     sendTcp(dataArgs->client_socket, 
             createTCPPacket(packetType,
                             dataArgs->servConf->mac,
@@ -167,8 +176,10 @@ void* storeData(void* args){
                             msg
                             )
             );
+    /*Close comunication*/
+    close(dataArgs->client_socket);
 
-    return 0;
+    return NULL;
 }
 
 
@@ -316,6 +327,7 @@ int main(int argc, char *argv[]) {
         /* Check if the TCP file descriptor has received data */   
         if (FD_ISSET(tcp_socket, &readfds)) {
             struct dataThreadArgs threadArgs;
+            struct sockaddr_in clientAddr;
             socklen_t client_addr_len = sizeof(struct sockaddr_in);
             pthread_t tcpThread;
 
@@ -323,7 +335,7 @@ int main(int argc, char *argv[]) {
             threadArgs.servConf = &serv_conf;
             threadArgs.numControllers = numControllers;
 
-            if ((threadArgs.client_socket = accept(tcp_socket, (struct sockaddr *)&threadArgs.clientAddr, &client_addr_len)) == -1) {
+            if ((threadArgs.client_socket = accept(tcp_socket, (struct sockaddr *)&clientAddr, &client_addr_len)) == -1) {
                 lerror("Unexpected error while receiving TCP connection.",true);
             }
 

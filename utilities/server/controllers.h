@@ -94,7 +94,7 @@ int isTCPAllowed(const struct TCPPacket packet, struct Controller *controllers, 
  * @param deviceArray Pointer to the array where tokens will be stored.
  * @param delimiter The delimiter used to tokenize the string.
  */
-void storeDevices(char *devices, char (*deviceArray)[8], char *delimiter);
+void storeDevices(char *devices, char [][8], char *delimiter);
 
 /**
  * @brief Checks if a device exists in the deviceArray.

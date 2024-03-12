@@ -19,6 +19,11 @@
 extern bool DEBUG;
 
 /**
+ * @brief Enables debug mode when called
+ */
+void enableDebug();
+
+/**
  * @brief Function to show error messages.
  *
  * @param str The string to print
@@ -46,8 +51,16 @@ void lwarning(const char *str, bool override, ...);
 void linfo(const char *str, bool override, ...);
 
 /**
- * @brief Enables debug mode when called
+ * @brief Function to save TCPPacket data to a file.
+ *
+ * This function saves the data from a TCPPacket struct to a file, appending it to an existing file
+ * or creating a new one if necessary. The data is formatted and written to the file along with
+ * information about the controller and the current timestamp.
+ *
+ * @param packet The TCPPacket struct containing data to be saved.
+ * @param controller The Controller struct containing information about the controller.
+ * @return 0 if successful, -1 if failed to open/create file.
  */
-void enableDebug();
+int save(struct TCPPacket packet, struct Controller controller);
 
 #endif /* LOGS_H */
