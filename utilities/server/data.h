@@ -6,3 +6,6 @@ struct dataThreadArgs{
     struct Server *servConf;
     struct Controller *controllers;
 };
+
+
+void setData(struct Controller *controller,int device);

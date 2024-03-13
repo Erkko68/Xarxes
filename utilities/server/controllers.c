@@ -153,6 +153,27 @@ void storeDevices(char *devices, char deviceArray[][8], char *delimiter) {
     strncpy(deviceArray[i],"NULL",sizeof(deviceArray[i]) - 1);
 }
 
+/**
+ * @brief Checks if a controller with the given name exists in the array of controllers.
+ *
+ * This function iterates through the array of controllers and compares each controller's name with the given name.
+ * If a controller with the same name is found, its index is returned. If no matching controller is found, -1 is returned.
+ * 
+ * @param name The name of the controller to search for.
+ * @param controllers Pointer to the array of controllers.
+ * @return int The index of the controller if found, otherwise -1.
+ */
+int hasController(char *name,struct Controller *controllers){
+    int i;
+    for (i = 0; strcmp(controllers[i].name,"NULL"); i++) {
+        if (strcmp(name, controllers[i].name) == 0) {
+            /*Return index*/
+            return i;
+        }
+    }
+    return -1;
+}
+
 
 /**
  * @brief Checks if a device exists in the deviceArray.

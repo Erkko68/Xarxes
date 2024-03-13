@@ -43,3 +43,5 @@ const char* getStatusName(enum Status status);
  * @param numControllers The number of controllers in the array.
  */
 void printList(struct Controller *controllers);
+
+void commandSet(char *controller, char *device, char *value, struct Controller *controllers);

@@ -102,6 +102,17 @@ void storeDevices(char *devices, char [][8], char *delimiter);
  */
 int hasDevice(const char *device, const struct Controller *controller);
 
+/**
+ * @brief Checks if a controller with the given name exists in the array of controllers.
+ *
+ * This function iterates through the array of controllers and compares each controller's name with the given name.
+ * If a controller with the same name is found, its index is returned. If no matching controller is found, -1 is returned.
+ * 
+ * @param name The name of the controller to search for.
+ * @param controllers Pointer to the array of controllers.
+ * @return int The index of the controller if found, otherwise -1.
+ */
+int hasController(char *name,struct Controller *controllers);
 
 /**
  * @brief Disconnects a controller and sets its status to DISCONNECTED.

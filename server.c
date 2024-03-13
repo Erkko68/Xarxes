@@ -384,19 +384,32 @@ int main(int argc, char *argv[]) {
             sanitizeString(commandLine);
 
             /*Get command and arguments*/
-            args = sscanf(commandLine, "%5s %9s %7s %7s", command, controller, device, value);
+            args = sscanf(commandLine, "%4s %8s %7s %6s", command, controller, device, value);
 
             if (strcmp(command, "list") == 0 && args == 1) {
                 printList(controllers);
             } else if (strcmp(command, "set") == 0 && args == 4) {
-                /* set command */
+                if (strlen(controller) > 8) {
+                    linfo("Controller name exceeds maximum length. (8)", true);
+                } else if (strlen(device) > 7) {
+                    linfo("Device name exceeds maximum length. (7)", true);
+                } else if (strlen(value) > 6) {
+                    linfo("Value exceeds maximum length. (6)", true);
+                } else {
+                    commandSet(controller, device, value, controllers);
+                }
             } else if (strcmp(command, "get") == 0 && args == 3) {
-                /* get command */
+                if (strlen(controller) > 8) {
+                    linfo("Controller name exceeds maximum length. (8)", true);
+                } else if (strlen(device) > 7) {
+                    linfo("Device name exceeds maximum length. (7)", true);
+                } else {
+                    printf("%s %s\n", controller, device);
+                }
             } else if (strcmp(command, "quit") == 0 && args == 1) {
-                /*Close server*/
                 break;
             } else {
-                linfo("Invalid command. Usage:\n list (Show authorized controllers info.)\n set <controller-name> <device-name> <value> (sends info to the device)\n get <controller-name> <device-name> (Requests info to the device)\n quit (Quits server and closes all communications)",true);
+                linfo("Usage: list | set <controller-name> <device-name> <value> | get <controller-name> <device-name> | quit", 1);
             }
         }
     }

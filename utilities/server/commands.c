@@ -99,3 +99,18 @@ void printList(struct Controller *controllers) {
         printf("\n");
     }
 }
+
+
+void commandSet(char *controller, char *device, char *value, struct Controller *controllers){
+    int controllerNum;
+    int deviceNum;
+    if ((controllerNum = hasController(controller,controllers)) != -1) {
+        if ((deviceNum = hasDevice(device,controllers)) != -1) {
+            setData(&controllers[controllerNum],deviceNum);
+        } else {
+            lwarning("Device in controller %s not found",true,controllers[controllerNum].mac);
+        }
+    } else {
+        lwarning("Controller not found",true);
+    }
+}
