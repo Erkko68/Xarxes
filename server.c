@@ -159,7 +159,7 @@ void* storeData(void* args){
                 if(hasDevice(tcp_packet.device,&dataArgs->controllers[controllerIndex]) != -1){
                     const char *result;
                     /*Check error msg*/
-        /*---->*/    if ((result = save(tcp_packet,dataArgs->controllers[controllerIndex])) == NULL){
+        /*---->*/    if ((result = save(&tcp_packet,&dataArgs->controllers[controllerIndex])) == NULL){
                         linfo("Controller %s updated %s. Value: %s", false, tcp_packet.mac,tcp_packet.device,tcp_packet.value);
                         packetType = DATA_ACK;
                     } else {

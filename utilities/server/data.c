@@ -2,12 +2,16 @@
 #include "../commons.h"
 
 void setData(struct Controller *controller, char *device, char *value, struct Server *srvConf){
-    int sockfd;
+    int dataSckt;
     struct sockaddr_in client_addr;
     struct TCPPacket dataPacket;
+    struct timeval tcpTimeout;
+    /* Packet msg */
+    const char *result;
+    char msg[80];
 
     /* Create socket */
-    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
+    if ((dataSckt = socket(AF_INET, SOCK_STREAM, 0)) < 0){
         lerror("Unexpected error opening socket", true);
     }
 
@@ -20,38 +24,49 @@ void setData(struct Controller *controller, char *device, char *value, struct Se
         lerror("Unexpected error when setting adress:",true);
     }
 
-    if (connect(sockfd, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
+    if (connect(dataSckt, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
         lerror("Connection to controller %s failed", true,controller->mac);
     }
 
     /* Create and send SET_DATA packet */
-    sendTcp(sockfd,createTCPPacket(SET_DATA,srvConf->mac,controller->data.rand,device,value,"Hello"));
+    sendTcp(dataSckt,createTCPPacket(SET_DATA,srvConf->mac,controller->data.rand,device,value,"Hello"));
 
-    /**************/
-    /*Set a select*/
-    /**************/
+    /*Set select timeout*/
+    tcpTimeout.tv_sec = 3;
+    tcpTimeout.tv_usec = 0;
+    if(setsockopt(dataSckt,SOL_SOCKET,SO_RCVTIMEO,(const char*)&tcpTimeout,sizeof(tcpTimeout)) < 0){
+        lerror("Unexpected error when setting TCP socket settings",true);
+    }
+
     /* Recv packet */
+    dataPacket = recvTcp(dataSckt);
 
-    dataPacket = recvTcp(sockfd);
-    
     switch (dataPacket.type) {
         case DATA_ACK:
-            printf("Received SEND_ACK packet\n");
-            // Handle SEND_ACK packet
+            linfo("Received confirmation for device %s. Storing data...",true,device);
+            if ((result = save(&dataPacket,controller)) == NULL){
+                linfo("Controller %s updated %s. Value: %s", false, dataPacket.mac,dataPacket.device,dataPacket.value);
+            } else {
+                /* Print fail messages */
+                sprintf(msg,"Couldn't store %s data %s.",dataPacket.device,result);
+                lwarning("Couldn't store %s data from Controller: %s. Reason: %s", false,dataPacket.device,dataPacket.mac,result);
+                /* Send error packet */
+                sendTcp(dataSckt, createTCPPacket(DATA_NACK,controller->mac,controller->data.rand,dataPacket.device,dataPacket.value,msg));
+                /* Disconnect packet */
+                disconnectController(controller);
+            }
             break;
         case DATA_NACK:
-            printf("Received SEND_NACK packet\n");
-            // Handle SEND_NACK packet
+            lwarning("Couldn't set device info: %s",true,dataPacket.data);
             break;
         case DATA_REJ:
-            printf("Received SEND_REJ packet\n");
-            // Handle SEND_REJ packet
+            lwarning("Controller rejected data. Disconecting...",true);
+            disconnectController(controller);
             break;
         default:
-            printf("Unknown packet type\n");
-            // Handle unknown packet type
+            lwarning("Unknown packet received",true);
             break;
     }
 
-    close(sockfd);
+    close(dataSckt);
 }

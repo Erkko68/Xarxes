@@ -126,7 +126,7 @@ const char* getTCPName(enum TCPType type) {
  * @param controller The Controller struct containing information about the controller.
  * @return 0 if successful, -1 if failed to open/create file.
  */
-const char* save(struct TCPPacket packet, struct Controller controller) {
+const char* save(struct TCPPacket *packet, struct Controller *controller) {
     char filename[50], date_str[9];
     FILE *file;
     time_t now;
@@ -139,7 +139,7 @@ const char* save(struct TCPPacket packet, struct Controller controller) {
     /**!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!REMOVE LOGS/!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!**/
     /**!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!REMOVE LOGS/!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!**/
     /**!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!REMOVE LOGS/!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!**/
-    sprintf(filename, "logs/%s-%s.data", controller.name, controller.data.situation);
+    sprintf(filename, "logs/%s-%s.data", controller->name, controller->data.situation);
 
     /* Open file or create one */
     if ((file = fopen(filename, "a")) == NULL) {
@@ -150,7 +150,7 @@ const char* save(struct TCPPacket packet, struct Controller controller) {
     strftime(date_str, sizeof(date_str), "%d-%m-%y", local_time);
 
     /* Write data to file */
-    if (fprintf(file, "%s,%s,%s,%s,%s\n", date_str, get_current_time(), getTCPName(packet.type), packet.device, packet.value) < 0) {
+    if (fprintf(file, "%s,%s,%s,%s,%s\n", date_str, get_current_time(), getTCPName(packet->type), packet->device, packet->value) < 0) {
         return strerror(errno);
     }
 
