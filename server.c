@@ -152,7 +152,7 @@ void* storeData(void* args){
     }
     pthread_mutex_lock(&mutex);
         /*Check allowed controller*/
-        if((controllerIndex = isTCPAllowed(tcp_packet, dataArgs->controllers, dataArgs->numControllers)) != -1){ 
+        if((controllerIndex = isTCPAllowed(tcp_packet, dataArgs->controllers)) != -1){ 
             /*Check correct status*/
             if(dataArgs->controllers[controllerIndex].data.status == SEND_HELLO){
                 /*Check if controller has device*/
@@ -297,7 +297,7 @@ int main(int argc, char *argv[]) {
             udp_packet = recvUdp(udp_socket, &serv_conf.udp_address);
 
             /*Checks if incoming packet has allowed name and mac adress*/
-            if ((controllerIndex = isUDPAllowed(udp_packet, controllers, numControllers)) != -1) {
+            if ((controllerIndex = isUDPAllowed(udp_packet, controllers)) != -1) {
                 
                 if ((controllers[controllerIndex].data.status == DISCONNECTED)){
                     handleDisconnected(&udp_packet, &controllers[controllerIndex], udp_socket, &serv_conf);
@@ -354,7 +354,6 @@ int main(int argc, char *argv[]) {
 
             threadArgs.controllers = controllers;
             threadArgs.servConf = &serv_conf;
-            threadArgs.numControllers = numControllers;
 
             if ((threadArgs.client_socket = accept(tcp_socket, (struct sockaddr *)&clientAddr, &client_addr_len)) == -1) {
                 lerror("Unexpected error while receiving TCP connection.",true);
@@ -385,10 +384,10 @@ int main(int argc, char *argv[]) {
             sanitizeString(commandLine);
 
             /*Get command and arguments*/
-            args = sscanf(commandLine, "%4s %8s %7s %7s", command, controller, device, value);
+            args = sscanf(commandLine, "%5s %9s %7s %7s", command, controller, device, value);
 
             if (strcmp(command, "list") == 0 && args == 1) {
-                printList(controllers,numControllers);
+                printList(controllers);
             } else if (strcmp(command, "set") == 0 && args == 4) {
                 /* set command */
             } else if (strcmp(command, "get") == 0 && args == 3) {

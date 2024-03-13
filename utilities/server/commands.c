@@ -83,10 +83,10 @@ void printInfoOrSpaces(char* str, int width) {
  * @param controllers Pointer to an array of Controller structures.
  * @param numControllers The number of controllers in the array.
  */
-void printList(struct Controller *controllers, int numControllers) {
+void printList(struct Controller *controllers) {
     int i, j;
     printf("--NOM--- ------IP------- -----MAC---- --RNDM-- ----ESTAT--- --SITUACIÓ-- --ELEMENTS-------------------------------------------\n");
-    for (i = 0; i < numControllers; i++) {
+    for (i = 0; strcmp(controllers[i].name,"NULL") != 0; i++) {
         printf("%s ", controllers[i].name);
         printInfoOrSpaces(controllers[i].data.ip, sizeof(controllers[i].data.ip) - 1);
         printf("%s ", controllers[i].mac);

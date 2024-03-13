@@ -42,4 +42,4 @@ const char* getStatusName(enum Status status);
  * @param controllers Pointer to an array of Controller structures.
  * @param numControllers The number of controllers in the array.
  */
-void printList(struct Controller *controllers, int numControllers);
+void printList(struct Controller *controllers);

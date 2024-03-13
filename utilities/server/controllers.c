@@ -1,5 +1,5 @@
 /**
- * @file controllers.h
+ * @file controllers.c
  * @brief Functions for saving, loading, and managing clients for the server.
  * 
  * 
@@ -28,7 +28,7 @@ int loadControllers(struct Controller **controllers, const char *filename) {
 
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
-        lerror("Could not open filedescriptor while reading controllers.",true);
+        lerror("Could not open filedescriptor while reading controllers.", true);
     }
  
     while (fgets(line, sizeof(line), file) != NULL) {
@@ -36,28 +36,38 @@ int loadControllers(struct Controller **controllers, const char *filename) {
         char mac[13];
         char device[] = "NULL";
         if (sscanf(line, "%9[^,],%13s", name, mac) == 2) {
-            /*Dynamically reallocate memory for additional controllers*/
+            /* Dynamically reallocate memory for additional controllers */
             *controllers = (struct Controller*) realloc(*controllers, (numControllers + 1) * sizeof(struct Controller));
             if (*controllers == NULL) {
-                lerror("Failed memory allocation while reading controllers.",true);
+                lerror("Failed memory allocation while reading controllers.", true);
             }
-            /*Copy name and mac to the new controller*/
+            /* Copy name and mac to the new controller */
             strncpy((*controllers)[numControllers].name, name, sizeof((*controllers)[numControllers].name));
             strncpy((*controllers)[numControllers].mac, mac, sizeof((*controllers)[numControllers].mac));
             /* Set to zeros any other value */
             memset(&((*controllers)[numControllers].data), 0, sizeof((*controllers)[numControllers].data));
 
             strncpy((*controllers)[numControllers].data.devices[0], device, sizeof((*controllers)[numControllers].data.devices[0]));
-            /*Set disconected status*/
-            (*controllers)[numControllers].data.status=DISCONNECTED;
-            /*Increase number of controllers*/
+            /* Set disconnected status */
+            (*controllers)[numControllers].data.status = DISCONNECTED;
+            /* Increase number of controllers */
             numControllers++;
         } else {
-            lwarning("Wrong controller format in line: %d. Correct format (CTRL-XXX,YYYYYYYYYYY)",true,numControllers+1);
+            lwarning("Wrong controller format in line: %d. Correct format (CTRL-XXX,YYYYYYYYYYY)", true, numControllers+1);
         }
     }
 
     fclose(file);
+
+    /* Allocate a last struct with the name field set to "NULL" */
+    *controllers = (struct Controller*) realloc(*controllers, (numControllers + 1) * sizeof(struct Controller));
+    if (*controllers == NULL) {
+        lerror("Failed memory allocation for the last controller.", true);
+    }
+    strncpy((*controllers)[numControllers].name, "NULL", sizeof((*controllers)[numControllers].name));
+    memset(&((*controllers)[numControllers].mac), 0, sizeof((*controllers)[numControllers].mac));
+    memset(&((*controllers)[numControllers].data), 0, sizeof((*controllers)[numControllers].data));
+
     return numControllers;
 }
 
@@ -72,10 +82,9 @@ int loadControllers(struct Controller **controllers, const char *filename) {
  * 
  * @param packet The packet struct to check.
  * @param controllers Pointer to the array of Controller structs containing allowed controllers.
- * @param numControllers The number of controllers in the array.
  * @return Returns 1 if the controller is allowed, 0 otherwise.
  */
-int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers, int numControllers) {
+int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers) {
     int i;
     /* Make a copy of packet data*/
     char data_copy[80];
@@ -85,7 +94,7 @@ int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers, 
     name = strtok(data_copy, ",");
 
     /*Iterate over allowed controllers*/
-    for (i = 0; i < numControllers; i++) {
+    for (i = 0; strcmp(controllers[i].name,"NULL") != 0; i++) {
         if (strcmp(packet.mac, controllers[i].mac) == 0 && 
             strcmp(name, controllers[i].name) == 0) {
             /*Return index*/
@@ -104,13 +113,12 @@ int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers, 
  * 
  * @param packet The TCPPacket struct representing the TCP packet to check.
  * @param controllers Pointer to the array of Controller structs containing allowed controllers.
- * @param numControllers The number of controllers in the array.
  * @return Returns the index of the allowed controller if found, otherwise returns -1.
  */
-int isTCPAllowed(const struct TCPPacket packet, struct Controller *controllers, int numControllers) {
+int isTCPAllowed(const struct TCPPacket packet, struct Controller *controllers) {
     int i;
     /*Iterate over allowed controllers*/
-    for (i = 0; i < numControllers; i++) {
+    for (i = 0; strcmp(controllers[i].name,"NULL"); i++) {
         if (strcmp(packet.mac, controllers[i].mac) == 0 && 
             strcmp(packet.rnd, controllers[i].data.rand) == 0) {
             /*Return index*/
