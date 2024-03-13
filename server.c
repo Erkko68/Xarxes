@@ -396,7 +396,7 @@ int main(int argc, char *argv[]) {
                 } else if (strlen(value) > 6) {
                     linfo("Value exceeds maximum length. (6)", true);
                 } else {
-                    commandSet(controller, device, value, controllers,&serv_conf);
+                    commandDataPetition(controller, device, value, controllers,&serv_conf);
                 }
             } else if (strcmp(command, "get") == 0 && args == 3) {
                 if (strlen(controller) > 8) {
@@ -404,7 +404,7 @@ int main(int argc, char *argv[]) {
                 } else if (strlen(device) > 7) {
                     linfo("Device name exceeds maximum length. (7)", true);
                 } else {
-                    printf("%s %s\n", controller, device);
+                    commandDataPetition(controller, device, "", controllers,&serv_conf);
                 }
             } else if (strcmp(command, "quit") == 0 && args == 1) {
                 break;

@@ -1,8 +1,9 @@
 
 #include "../commons.h"
 
-void setData(struct Controller *controller, char *device, char *value, struct Server *srvConf){
+void dataPetition(struct Controller *controller, char *device, char *value, struct Server *srvConf){
     int dataSckt;
+    unsigned char packetType;
     struct sockaddr_in client_addr;
     struct TCPPacket dataPacket;
     struct timeval tcpTimeout;
@@ -28,8 +29,14 @@ void setData(struct Controller *controller, char *device, char *value, struct Se
         lerror("Connection to controller %s failed", true,controller->mac);
     }
 
+    /* Check if we want to send or get data */
+    if( strcmp(value,"") == 0 ){
+        packetType = GET_DATA;
+    } else {
+        packetType = SET_DATA;
+    }
     /* Create and send SET_DATA packet */
-    sendTcp(dataSckt,createTCPPacket(SET_DATA,srvConf->mac,controller->data.rand,device,value,"Hello"));
+    sendTcp(dataSckt,createTCPPacket(packetType,srvConf->mac,controller->data.rand,device,value,""));
 
     /*Set select timeout*/
     tcpTimeout.tv_sec = 3;
@@ -43,6 +50,7 @@ void setData(struct Controller *controller, char *device, char *value, struct Se
 
     switch (dataPacket.type) {
         case DATA_ACK:
+
             linfo("Received confirmation for device %s. Storing data...",true,device);
             if ((result = save(&dataPacket,controller)) == NULL){
                 linfo("Controller %s updated %s. Value: %s", false, dataPacket.mac,dataPacket.device,dataPacket.value);
@@ -56,14 +64,20 @@ void setData(struct Controller *controller, char *device, char *value, struct Se
                 disconnectController(controller);
             }
             break;
+
         case DATA_NACK:
+
             lwarning("Couldn't set device info: %s",true,dataPacket.data);
             break;
+
         case DATA_REJ:
+
             lwarning("Controller rejected data. Disconecting...",true);
             disconnectController(controller);
             break;
+
         default:
+
             lwarning("Unknown packet received",true);
             break;
     }

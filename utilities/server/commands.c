@@ -101,13 +101,13 @@ void printList(struct Controller *controllers) {
 }
 
 
-void commandSet(char *controller, char *device, char *value, struct Controller *controllers, struct Server *srvConf){
+void commandDataPetition(char *controller, char *device, char *value, struct Controller *controllers, struct Server *srvConf){
     int controllerNum;
     int deviceNum;
     
     if ((controllerNum = hasController(controller,controllers)) != -1 && controllers[controllerNum].data.status != DISCONNECTED) {
         if ((deviceNum = hasDevice(device,controllers)) != -1) {
-            setData(&controllers[controllerNum],device,value,srvConf);
+            dataPetition(&controllers[controllerNum],device,value,srvConf);
         } else {
             lwarning("Device in controller %s not found",true,controllers[controllerNum].mac);
         }
@@ -115,3 +115,4 @@ void commandSet(char *controller, char *device, char *value, struct Controller *
         lwarning("Controller not found or disconnected",true);
     }
 }
+
