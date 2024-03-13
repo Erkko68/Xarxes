@@ -1,48 +1,57 @@
 
 #include "../commons.h"
 
-void setData(struct Controller *controller,int device){
-    int sockfd, newsockfd;
-    socklen_t clilen;
-    char buffer[113];
-    struct sockaddr_in serv_addr, cli_addr;
-    int n;
+void setData(struct Controller *controller, char *device, char *value, struct Server *srvConf){
+    int sockfd;
+    struct sockaddr_in client_addr;
+    struct TCPPacket dataPacket;
 
-    // Create socket
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0)
-        error("Error opening socket");
+    /* Create socket */
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
+        lerror("Unexpected error opening socket", true);
+    }
 
-    // Initialize server address struct
-    memset((char *)&serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(controller->data.tcp);
+    /* Initialize server address struct */
+    memset(&client_addr, 0, sizeof(client_addr));
+    client_addr.sin_family = AF_INET;
+    client_addr.sin_port = htons(controller->data.tcp);
 
-    // Bind socket to address
-    if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-        error("Error on binding");
+    if (inet_pton(AF_INET, controller->data.ip, &client_addr.sin_addr) <= 0) {
+        lerror("Unexpected error when setting adress:",true);
+    }
 
-    // Listen for incoming connections
-    listen(sockfd, 5);
+    if (connect(sockfd, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
+        lerror("Connection to controller %s failed", true,controller->mac);
+    }
 
-    clilen = sizeof(cli_addr);
+    /* Create and send SET_DATA packet */
+    sendTcp(sockfd,createTCPPacket(SET_DATA,srvConf->mac,controller->data.rand,device,value,"Hello"));
 
-    // Accept connection from client
-    newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen);
-    if (newsockfd < 0)
-        error("Error on accept");
+    /**************/
+    /*Set a select*/
+    /**************/
+    /* Recv packet */
 
-    // Connection established, send data to client
-    strcpy(buffer, "Hello, client! This is a message from the server.");
-    n = write(newsockfd, buffer, strlen(buffer));
-    if (n < 0)
-        error("Error writing to socket");
+    dataPacket = recvTcp(sockfd);
+    
+    switch (dataPacket.type) {
+        case DATA_ACK:
+            printf("Received SEND_ACK packet\n");
+            // Handle SEND_ACK packet
+            break;
+        case DATA_NACK:
+            printf("Received SEND_NACK packet\n");
+            // Handle SEND_NACK packet
+            break;
+        case DATA_REJ:
+            printf("Received SEND_REJ packet\n");
+            // Handle SEND_REJ packet
+            break;
+        default:
+            printf("Unknown packet type\n");
+            // Handle unknown packet type
+            break;
+    }
 
-    printf("Message sent to client: %s\n", buffer);
-
-    close(newsockfd);
     close(sockfd);
-    return 0;
-
 }

@@ -396,7 +396,7 @@ int main(int argc, char *argv[]) {
                 } else if (strlen(value) > 6) {
                     linfo("Value exceeds maximum length. (6)", true);
                 } else {
-                    commandSet(controller, device, value, controllers);
+                    commandSet(controller, device, value, controllers,&serv_conf);
                 }
             } else if (strcmp(command, "get") == 0 && args == 3) {
                 if (strlen(controller) > 8) {

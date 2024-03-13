@@ -33,7 +33,8 @@
 			"utility": "c",
 			"string": "c",
 			"string_view": "c",
-			"errno.h": "c"
+			"errno.h": "c",
+			"compare": "c"
 		}
 	}
 }

@@ -44,4 +44,4 @@ const char* getStatusName(enum Status status);
  */
 void printList(struct Controller *controllers);
 
-void commandSet(char *controller, char *device, char *value, struct Controller *controllers);
+void commandSet(char *controller, char *device, char *value, struct Controller *controllers, struct Server *srvConf);

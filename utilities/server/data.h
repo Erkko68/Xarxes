@@ -8,4 +8,4 @@ struct dataThreadArgs{
 };
 
 
-void setData(struct Controller *controller,int device);
+void setData(struct Controller *controller, char *device, char *value, struct Server *srvConf);

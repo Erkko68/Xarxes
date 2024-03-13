@@ -101,16 +101,17 @@ void printList(struct Controller *controllers) {
 }
 
 
-void commandSet(char *controller, char *device, char *value, struct Controller *controllers){
+void commandSet(char *controller, char *device, char *value, struct Controller *controllers, struct Server *srvConf){
     int controllerNum;
     int deviceNum;
-    if ((controllerNum = hasController(controller,controllers)) != -1) {
+    
+    if ((controllerNum = hasController(controller,controllers)) != -1 && controllers[controllerNum].data.status != DISCONNECTED) {
         if ((deviceNum = hasDevice(device,controllers)) != -1) {
-            setData(&controllers[controllerNum],deviceNum);
+            setData(&controllers[controllerNum],device,value,srvConf);
         } else {
             lwarning("Device in controller %s not found",true,controllers[controllerNum].mac);
         }
     } else {
-        lwarning("Controller not found",true);
+        lwarning("Controller not found or disconnected",true);
     }
 }

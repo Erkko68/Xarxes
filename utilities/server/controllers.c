@@ -187,7 +187,7 @@ int hasController(char *name,struct Controller *controllers){
  */
 int hasDevice(const char *device, const struct Controller *controller) {
     int i;
-    for (i = 0; strcmp(device,"NULL") != 0; i++) {
+    for (i = 0; strcmp(controller->data.devices[i],"NULL") != 0; i++) {
         if (strcmp(device, controller->data.devices[i]) == 0) {
             return i;
         }
