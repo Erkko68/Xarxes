@@ -35,7 +35,7 @@
  * - `utilities/server/conf.c`: Handles server configuration.
  * - `utilities/server/subs.c`: Manages controller subscription requests and periodic communication.
  * - `utilities/server/commands.c`: Executes server management commands.
- * - `utilities/server/data.c`: Handles data transmission, reception and storage.
+ * - `utilities/server/data.c`: Handles data transmission, request and storage.
  * 
  */
 
@@ -79,6 +79,7 @@ int main(int argc, char *argv[]) {
     char *controllers_file;
     readArgs(argc, argv, &config_file, &controllers_file);
 
+    /* Ctrl+C quit function */
     signal(SIGINT, quit);
 
     /*Initialise server configuration struct*/
