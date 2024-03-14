@@ -28,6 +28,7 @@
  * 
  * @section Organization
  * The program is organized into several modules and files:
+ * - `utilities/commons.h`: A common file across all modules to mantain library organization.
  * - `utilities/pdu/udp.c`: Contains functions for UDP packet handling.
  * - `utilities/pdu/tcp.c`: Contains functions for TCP packet handling.
  * - `utilities/logs.c`: Provides logging functionality for the program.
@@ -53,9 +54,9 @@ struct Controller *controllers = NULL;
 /* Closes the server */
 void quit(int signum) {
     if (signum == SIGINT) {
-        printf("Exiting via SIGINT...\n");
+        printf("\nExiting via SIGINT...\n");
     } else if(signum == 0) {
-        printf("Closing server...");
+        printf("Closing server...\n");
     }
     /*Free controllers*/
     free(controllers);
@@ -249,19 +250,19 @@ int main(int argc, char *argv[]) {
                 printList(controllers);
             } else if (strcmp(command, "set") == 0 && args == 4) {
                 if (strlen(controller) > 8) {
-                    linfo("Controller name exceeds maximum length. (8)", true);
+                    lwarning("Controller name exceeds maximum length. (8)", true);
                 } else if (strlen(device) > 7) {
-                    linfo("Device name exceeds maximum length. (7)", true);
+                    lwarning("Device name exceeds maximum length. (7)", true);
                 } else if (strlen(value) > 6) {
-                    linfo("Value exceeds maximum length. (6)", true);
+                    lwarning("Value exceeds maximum length. (6)", true);
                 } else {
                     commandDataPetition(controller, device, value, controllers,&serv_conf);
                 }
             } else if (strcmp(command, "get") == 0 && args == 3) {
                 if (strlen(controller) > 8) {
-                    linfo("Controller name exceeds maximum length. (8)", true);
+                    lwarning("Controller name exceeds maximum length. (8)", true);
                 } else if (strlen(device) > 7) {
-                    linfo("Device name exceeds maximum length. (7)", true);
+                    lwarning("Device name exceeds maximum length. (7)", true);
                 } else {
                     commandDataPetition(controller, device, "", controllers,&serv_conf);
                 }
