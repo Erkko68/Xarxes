@@ -9,6 +9,7 @@ int tcp_socket, udp_socket;
 /*Array of structs for allowed clients in memory*/
 struct Controller *controllers = NULL;
 
+/* Closes the server */
 void quit(int signum) {
     if (signum == SIGINT) {
         printf("Exiting via SIGINT...\n");
@@ -151,7 +152,7 @@ int main(int argc, char *argv[]) {
                 /* Check if 6 seconds have passed since the last packet */
                 if (current_time - controllers[i].data.lastPacketTime > 6) {
                     pthread_mutex_lock(&mutex);
-                        linfo("Controller %s hasn't sent 3 consecutive packets. DISCONNECTING...",false,controllers[i].mac);
+                        linfo("Controller %s hasn't sent 3 consecutive packets. DISCONNECTING...",false,controllers[i].name);
                         disconnectController(&controllers[i]);
                     pthread_mutex_unlock(&mutex);
                 }

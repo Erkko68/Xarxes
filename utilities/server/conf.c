@@ -35,7 +35,7 @@ struct Server serverConfig(const char *filename) {
     /*Open file descriptor*/
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
-        lerror("Error opening file",false);
+        lerror("Error opening file",true);
     }
     while (fgets(buffer, sizeof(buffer), file) != NULL) {
         char *key;
