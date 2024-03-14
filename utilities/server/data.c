@@ -6,8 +6,8 @@
  * saving TCPPacket data to a file and handling data petition communication.
  * 
  * @author Eric Bitria Ribes
- * @version 0.1
- * @date 2024-3-4
+ * @version 0.4
+ * @date 2024-3-14
  */
 
 #include "../commons.h"

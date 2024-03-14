@@ -6,8 +6,8 @@
  * into byte arrays and sending data over TCP sockets.
  *  
  * @author Eric Bitria Ribes
- * @version 0.2
- * @date 2024-3-4
+ * @version 0.3
+ * @date 2024-3-14
  */
 
 #ifndef PDUTCP_H

@@ -5,7 +5,7 @@
  * 
  * @author Eric Bitria Ribes
  * @version 0.3
- * @date 2024-3-8
+ * @date 2024-3-14
  */
 
 #ifndef SUBS_FUNCTIONS_H
@@ -31,11 +31,6 @@ struct subsThreadArgs {
 
 /**
  * @brief Function to handle subscription process.
- *
- * This function initiates a subscription process for a controller. It generates a random
- * identifier, sets up a UDP socket, and handles acknowledgment and information packets
- * received from the controller. It waits for a certain time for the controller to send
- * subscription information and disconnects if no information is received within the timeout.
  *
  * @param args Pointer to a struct subsThreadArgs containing necessary arguments.
  * @return NULL
@@ -72,11 +67,6 @@ void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddr
 /**
  * @brief Function to handle a disconnected controller.
  *
- * This function processes a UDP packet received from a disconnected controller.
- * It checks the packet's identifier and situation. If the packet has the correct identifier
- * and situation, it starts a subscription process by creating a new thread. If not, it rejects
- * the connection by sending a [SUBS_REJ] packet back to the controller.
- *
  * @param udp_packet The UDPPacket struct containing the UDP packet data.
  * @param controller The Controller struct containing information about the controller.
  * @param udp_socket The UDP socket descriptor.
@@ -86,11 +76,6 @@ void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *control
 
 /**
  * @brief Function to handle HELLO packets.
- *
- * This function processes a HELLO packet received from a controller. It validates the packet's data
- * against the expected situation, controller MAC address, and random identifier. If the validation
- * is successful, it sends a HELLO response back to the controller and updates the controller's status
- * accordingly. If the validation fails, it sends a HELLO_REJ response and disconnects the controller.
  *
  * @param udp_packet The UDPPacket struct containing the UDP packet data.
  * @param controller The Controller struct containing information about the controller.

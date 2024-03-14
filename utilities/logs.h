@@ -6,8 +6,8 @@
  * with optional debug mode.
  * 
  * @author Eric Bitria Ribes
- * @version 0.1
- * @date 2024-3-4
+ * @version 0.2
+ * @date 2024-3-5
  */
 
 #ifndef LOGS_H

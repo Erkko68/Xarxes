@@ -6,8 +6,8 @@
  * with optional debug mode.
  * 
  * @author Eric Bitria Ribes
- * @version 0.3
- * @date 2024-3-12
+ * @version 0.2
+ * @date 2024-3-8
  */
 
 #include "commons.h"

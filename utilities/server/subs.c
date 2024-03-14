@@ -3,8 +3,8 @@
  * @brief Functions for the Server Subscription Process.
  * 
  * @author Eric Bitria Ribes
- * @version 0.4
- * @date 2024-3-12
+ * @version 0.5
+ * @date 2024-3-14
  */
 
 #include "../commons.h"
@@ -150,10 +150,8 @@ void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddr
     subsPacket = recvUdp(newUDPSocket, newAddress);
 
     /* Extract TCP and devices information */
-    pthread_mutex_lock(&mutex);
-        tcp = strtok(subsPacket.data, ",");
-        devices = strtok(NULL, ",");
-    pthread_mutex_unlock(&mutex);
+    tcp = strtok(subsPacket.data, ",");
+    devices = strtok(NULL, ",");
  
     /* Check if SUBS_INFO packet is valid */
     if (strcmp(subsPacket.mac, subsArgs->controller->mac) == 0 && strcmp(subsPacket.rnd, rnd) == 0 && tcp != NULL && devices != NULL) {

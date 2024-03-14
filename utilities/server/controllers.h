@@ -4,8 +4,8 @@
  * 
  * 
  * @author Eric Bitria Ribes
- * @version 0.1
- * @date 2024-3-4
+ * @version 0.2
+ * @date 2024-3-14
  */
 
 #ifndef CONTROLLERS_H
@@ -92,9 +92,6 @@ void storeDevices(char *devices, char [][8], char *delimiter);
 
 /**
  * @brief Checks if a device exists in the deviceArray.
- *
- * This function iterates through the deviceArray to check if the specified device exists in the array.
- * It compares each device name with the given device until a match is found or the end of the array is reached.
  * 
  * @param device The device name to search for.
  * @param deviceArray Pointer to the array containing device names.
@@ -104,9 +101,6 @@ int hasDevice(const char *device, const struct Controller *controller);
 
 /**
  * @brief Checks if a controller with the given name exists in the array of controllers.
- *
- * This function iterates through the array of controllers and compares each controller's name with the given name.
- * If a controller with the same name is found, its index is returned. If no matching controller is found, -1 is returned.
  * 
  * @param name The name of the controller to search for.
  * @param controllers Pointer to the array of controllers.
@@ -116,8 +110,6 @@ int hasController(char *name,struct Controller *controllers);
 
 /**
  * @brief Disconnects a controller and sets its status to DISCONNECTED.
- *
- * This function resets the data of the provided controller to 0's and sets its status to DISCONNECTED.
  * 
  * @param controller Pointer to the controller struct to disconnect.
  */

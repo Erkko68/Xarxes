@@ -1,3 +1,44 @@
+/**
+ * @file server.c
+ * @brief Server Program for Controller Communication.
+ * 
+ * @details This program handles communication between a server and multiple controllers using TCP and UDP protocols. It manages server configuration, socket creation, controller connections, and data transmission/reception.
+ * 
+ * @author Eric Bitria Ribes
+ * @version 1.0
+ * @date 2024-3-14
+ * 
+ * @section Scope
+ * - Server Configuration Management: Reads and initializes server settings from configuration files.
+ * - Socket Initialization: Creates TCP and UDP socket file descriptors for communication with controllers.
+ * - Controller Management:
+ *      - Loads a list of allowed controllers into memory.
+ *      - Monitors and validates incoming connections from controllers.
+ *      - Handles subscription requests and manages connection status updates.
+ *      - Detects and handles disconnections and inactive controller detection.
+ * - Concurrency Control: Implements mutexes to manage concurrent access to shared resources, ensuring data integrity.
+ * - Communication Handling:
+ *      - Receives and processes UDP packets from controllers.
+ *      - Validates packet content and controller status.
+ *      - Responds to controllers based on their status and request type.
+ *      - Detects and handles TCP connections for data transmission between the server and controllers.
+ * - User Interaction:
+ *      - Accepts commands from the user via standard input for server management.
+ *      - Supports commands for listing controllers, setting device values, getting device data, and quitting the server.
+ * 
+ * @section Organization
+ * The program is organized into several modules and files:
+ * - `utilities/pdu/udp.c`: Contains functions for UDP packet handling.
+ * - `utilities/pdu/tcp.c`: Contains functions for TCP packet handling.
+ * - `utilities/logs.c`: Provides logging functionality for the program.
+ * - `utilities/server/controllers.c`: Manages controller loading and data.
+ * - `utilities/server/conf.c`: Handles server configuration.
+ * - `utilities/server/subs.c`: Manages controller subscription requests and periodic communication.
+ * - `utilities/server/commands.c`: Executes server management commands.
+ * - `utilities/server/data.c`: Handles data transmission, reception and storage.
+ * 
+ */
+
 #include "utilities/commons.h"
 
 /* Init global mutex between threads */
