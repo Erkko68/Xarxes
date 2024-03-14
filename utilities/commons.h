@@ -2,14 +2,12 @@
  * @file commons.h
  * @brief Common header file including system libraries and project-specific headers.
  * 
- * 
  * This header file serves as a central location to include commonly used libraries and
- * project-specific headers, reducing redundancy and ensuring consistency across multiple
- * source files within the project.
+ * project-specific headers.
  * 
  * @author Eric Bitria Ribes
- * @version 0.2
- * @date 2024-3-12
+ * @version 0.4
+ * @date 2024-3-14
  */
 
 #ifndef COMMONS_H
@@ -19,7 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
+#include <signal.h>
 
 #include <string.h>
 #include <stdbool.h>
@@ -41,7 +39,7 @@ extern pthread_mutex_t mutex;
 #include "pdu/tcp.h"
 #include "server/controllers.h"
 #include "server/conf.h"
-#include "server/subs_process.h"
+#include "server/subs.h"
 #include "server/commands.h"
 #include "server/data.h"
 #include "logs.h"

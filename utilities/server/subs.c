@@ -1,5 +1,5 @@
 /**
- * @file subs_process.c
+ * @file subs.c
  * @brief Functions for the Server Subscription Process.
  * 
  * @author Eric Bitria Ribes

@@ -1,5 +1,5 @@
 /**
- * @file subs_process.h
+ * @file subs.h
  * @brief Function definitions for Server Subscription Process.
  * 
  * 

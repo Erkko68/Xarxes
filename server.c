@@ -1,6 +1,6 @@
 #include "utilities/commons.h"
 
-/* Define global mutex between threads */
+/* Init global mutex between threads */
 pthread_mutex_t mutex;
 
 int main(int argc, char *argv[]) {
