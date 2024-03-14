@@ -1,3 +1,14 @@
+/**
+ * @file data.c
+ * @brief Function implementations for handling data communication.
+ * 
+ * This file contains function for handling data communication, including
+ * saving TCPPacket data to a file and handling data petition communication.
+ * 
+ * @author Eric Bitria Ribes
+ * @version 0.1
+ * @date 2024-3-4
+ */
 
 #include "../commons.h"
 
@@ -42,10 +53,7 @@ const char* save(struct TCPPacket *packet, struct Controller *controller) {
     local_time = localtime(&now);
 
     /* Create filename using name and situation */
-    /**!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!REMOVE LOGS/!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!**/
-    /**!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!REMOVE LOGS/!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!**/
-    /**!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!REMOVE LOGS/!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!**/
-    sprintf(filename, "logs/%s-%s.data", controller->name, controller->data.situation);
+    sprintf(filename, "%s-%s.data", controller->name, controller->data.situation);
 
     /* Open file or create one */
     if ((file = fopen(filename, "a")) == NULL) {

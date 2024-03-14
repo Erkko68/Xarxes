@@ -3,13 +3,30 @@
 /* Init global mutex between threads */
 pthread_mutex_t mutex;
 
+/*Create default server sockets file descriptors*/
+int tcp_socket, udp_socket;
+
+/*Array of structs for allowed clients in memory*/
+struct Controller *controllers = NULL;
+
+void quit(int signum) {
+    if (signum == SIGINT) {
+        printf("Exiting via SIGINT...\n");
+    } else if(signum == 0) {
+        printf("Closing server...");
+    }
+    /*Free controllers*/
+    free(controllers);
+    /*Close the socket file descriptors*/
+    close(udp_socket);
+    close(tcp_socket);
+
+    exit(EXIT_SUCCESS);
+}
+
 int main(int argc, char *argv[]) {
-    /*Create default server sockets file descriptors*/
-    int tcp_socket, udp_socket;
     /*Struct for server configuration*/
     struct Server serv_conf;
-    /*Array of structs for allowed clients in memory*/
-    struct Controller *controllers = NULL;
     int numControllers;
     int i;
     /*Initialise file descriptors select*/
@@ -19,6 +36,8 @@ int main(int argc, char *argv[]) {
     char *config_file;
     char *controllers_file;
     readArgs(argc, argv, &config_file, &controllers_file);
+
+    signal(SIGINT, quit);
 
     /*Initialise server configuration struct*/
     linfo("Reading server configuration files...",false);
@@ -82,7 +101,7 @@ int main(int argc, char *argv[]) {
 
         /*Start monitoring file descriptors*/
         if (select(max_fd + 1, &readfds, NULL, NULL, &timeout) < 0) {
-            lerror("Unexpected error in select.",true);
+            lerror("Unexpected error in select",true);
         }
         
         /* Check if UDP file descriptor has received data */
@@ -153,7 +172,7 @@ int main(int argc, char *argv[]) {
             threadArgs.servConf = &serv_conf;
 
             if ((threadArgs.client_socket = accept(tcp_socket, (struct sockaddr *)&clientAddr, &client_addr_len)) == -1) {
-                lerror("Unexpected error while receiving TCP connection.",true);
+                lerror("Unexpected error while receiving TCP connection",true);
             }
 
             /*Set TCP socket max recv time*/
@@ -164,7 +183,7 @@ int main(int argc, char *argv[]) {
             }
 
             if(pthread_create(&tcpThread, NULL, dataReception, (void *)&threadArgs) < 0){
-                lerror("Unexpected error while starting new TCP thread.",true);
+                lerror("Unexpected error while starting new TCP thread",true);
             }
         }
 
@@ -204,18 +223,11 @@ int main(int argc, char *argv[]) {
                     commandDataPetition(controller, device, "", controllers,&serv_conf);
                 }
             } else if (strcmp(command, "quit") == 0 && args == 1) {
-                break;
+                quit(0);
             } else {
                 linfo("Usage: list | set <controller-name> <device-name> <value> | get <controller-name> <device-name> | quit", 1);
             }
         }
     }
-    
-    /*Free controllers*/
-    free(controllers);
-    /*Close the socket file descriptors*/
-    close(udp_socket);
-    close(tcp_socket);
 
-    return 0;
 }
