@@ -45,4 +45,19 @@ const char* getStatusName(enum Status status);
 void printList(struct Controller *controllers);
 
 
+/**
+ * @brief Initiates a data petition to a controller.
+ *
+ * This function initiates a data petition to a controller identified by the provided controller name,
+ * device name, and value. It checks if the controller exists and is not disconnected, and if the 
+ * device exists in the controller. If all conditions are met, it allocates memory for the arguments
+ * of the independent thread, assigns values to the arguments, and creates a new thread to handle 
+ * the data petition.
+ * 
+ * @param controller Pointer to a string containing the controller name.
+ * @param device Pointer to a string containing the device name.
+ * @param value Pointer to a string containing the value.
+ * @param controllers Pointer to an array of Controller structures.
+ * @param srvConf Pointer to a Server structure.
+ */ 
 void commandDataPetition(char *controller, char *device, char *value, struct Controller *controllers, struct Server *srvConf);

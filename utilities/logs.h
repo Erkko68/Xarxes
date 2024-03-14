@@ -24,6 +24,13 @@ extern bool DEBUG;
 void enableDebug();
 
 /**
+ * @brief Function to get the current time in [Hour:Minute:Second] format.
+ *
+ * @return The current time in string format [Hour:Minute:Second]
+ */
+char* get_current_time();
+
+/**
  * @brief Function to show error messages.
  *
  * @param str The string to print
@@ -49,18 +56,5 @@ void lwarning(const char *str, bool override, ...);
  * @param ... Additional arguments for formatted output.
  */
 void linfo(const char *str, bool override, ...);
-
-/**
- * @brief Function to save TCPPacket data to a file.
- *
- * This function saves the data from a TCPPacket struct to a file, appending it to an existing file
- * or creating a new one if necessary. The data is formatted and written to the file along with
- * information about the controller and the current timestamp.
- *
- * @param packet The TCPPacket struct containing data to be saved.
- * @param controller The Controller struct containing information about the controller.
- * @return 0 if successful, -1 if failed to open/create file.
- */
-const char *save(struct TCPPacket *packet, struct Controller *controller);
 
 #endif /* LOGS_H */

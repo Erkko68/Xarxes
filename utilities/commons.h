@@ -33,6 +33,9 @@
 #include <arpa/inet.h>
 #include <sys/select.h>
 
+/* Define global mutex between threads */
+extern pthread_mutex_t mutex;
+
 /*Own Libraries*/
 #include "pdu/udp.h"
 #include "pdu/tcp.h"

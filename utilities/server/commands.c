@@ -101,18 +101,49 @@ void printList(struct Controller *controllers) {
 }
 
 
-void commandDataPetition(char *controller, char *device, char *value, struct Controller *controllers, struct Server *srvConf){
+/**
+ * @brief Initiates a data petition to a controller.
+ *
+ * This function initiates a data petition to a controller identified by the provided controller name,
+ * device name, and value. It checks if the controller exists and is not disconnected, and if the 
+ * device exists in the controller. If all conditions are met, it allocates memory for the arguments
+ * of the independent thread, assigns values to the arguments, and creates a new thread to handle 
+ * the data petition.
+ * 
+ * @param controller Pointer to a string containing the controller name.
+ * @param device Pointer to a string containing the device name.
+ * @param value Pointer to a string containing the value.
+ * @param controllers Pointer to an array of Controller structures.
+ * @param srvConf Pointer to a Server structure.
+ */ 
+void commandDataPetition(char *controller, char *device, char *value, struct Controller *controllers, struct Server *srvConf) {
     int controllerNum;
     int deviceNum;
+    pthread_t dataThread;
     
-    if ((controllerNum = hasController(controller,controllers)) != -1 && controllers[controllerNum].data.status != DISCONNECTED) {
-        if ((deviceNum = hasDevice(device,controllers)) != -1) {
-            dataPetition(&controllers[controllerNum],device,value,srvConf);
+    /* Check if the controller exists and is not disconnected */
+    if ((controllerNum = hasController(controller, controllers)) != -1 && controllers[controllerNum].data.status != DISCONNECTED) {
+        /* Check if the device exists */
+        if ((deviceNum = hasDevice(device, &controllers[controllerNum])) != -1) {
+            /* Allocate memory to hold the arguments for the independent thread */
+            struct dataPetition *args = malloc(sizeof(struct dataPetition));
+            if (args == NULL) {
+                lerror("Failed memory allocation for commandData Thread", true);
+            }
+            /* Assign values to the arguments */
+            args->controller = &controllers[controllerNum];
+            args->device = device;
+            args->value = value;
+            args->servConf = srvConf;
+
+            /* Create a new thread to handle the data petition */
+            if(pthread_create(&dataThread, NULL, dataPetition, (void *)args) < 0) {
+                lerror("Unexpected error while starting new TCP thread.", true);
+            }
         } else {
-            lwarning("Device in controller %s not found",true,controllers[controllerNum].mac);
+            lwarning("Device in controller %s not found", true, controllers[controllerNum].mac);
         }
     } else {
-        lwarning("Controller not found or disconnected",true);
+        lwarning("Controller not found or disconnected", true);
     }
 }
-

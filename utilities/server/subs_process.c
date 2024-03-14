@@ -9,7 +9,65 @@
 
 #include "../commons.h"
 
-/* Function to set up the UDP socket and bind to a random port
+/**
+ * @brief Function to handle subscription process.
+ *
+ * This function initiates a subscription process for a controller. It generates a random
+ * identifier, sets up a UDP socket, and handles acknowledgment and information packets
+ * received from the controller. It waits for a certain time for the controller to send
+ * subscription information and disconnects if no information is received within the timeout.
+ *
+ * @param args Pointer to a struct subsThreadArgs containing necessary arguments.
+ * @return NULL
+ */
+void* subsProcess(void *args) {
+    struct subsThreadArgs *subsArgs = (struct subsThreadArgs*)args;
+    struct timeval timeout;
+    struct sockaddr_in newAddress;
+    int newUDPSocket;
+    fd_set readfds;
+    int received;
+    char rnd[9];
+
+    /* Log start of the thread */
+    linfo("Starting new subscription process for controller: %s.", false, subsArgs->controller->mac);
+
+    /* Generate random identifier */
+    generateIdentifier(rnd);
+
+    /* Set up UDP socket */
+    newUDPSocket = setupUDPSocket(&newAddress);
+
+    /* Handle SUBS_ACK */
+    handleSubsAck(subsArgs, &newAddress, rnd);
+
+    /* Initialize file descriptor and set timeout */
+    FD_ZERO(&readfds);
+    FD_SET(newUDPSocket, &readfds);
+    timeout.tv_sec = 2;
+    timeout.tv_usec = 0;
+
+    /* Wait for SUBS_INFO or timeout */
+    if ((received = select(newUDPSocket + 1, &readfds, NULL, NULL, &timeout)) < 0) {
+        lerror("Error initializing select during subscription process thread by client: %s", true, subsArgs->srvConf->mac);
+    } else if (received == 0) {
+        /* Handle timeout */
+        linfo("Controller %s hasn't sent SUBS_INFO in the last 2 seconds. Disconnecting...",false,subsArgs->controller->mac);
+        pthread_mutex_lock(&mutex);
+            disconnectController(subsArgs->controller);
+        pthread_mutex_unlock(&mutex);
+    } else {
+        /* Handle [SUBS_INFO] */
+        handleSubsInfo(subsArgs, &newAddress, rnd, newUDPSocket);
+    }
+
+    /*Close socket*/
+    close(newUDPSocket);
+
+    return NULL;
+}
+
+/* Function to set up a new UDP socket and bind to a random port
  *
  * @brief Initializes a UDP socket and binds it to a random port.
  *        Retrieves the port number assigned by the operating system.
@@ -72,6 +130,7 @@ void handleSubsAck(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddre
     pthread_mutex_unlock(&mutex);
 }
 
+
 /* Function to handle SUBS_INFO
  *
  * @brief Handles the SUBS_INFO process by receiving and processing the SUBS_INFO packet,
@@ -125,5 +184,104 @@ void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddr
         pthread_mutex_lock(&mutex);
             disconnectController(subsArgs->controller);
         pthread_mutex_unlock(&mutex);
+    }
+}
+
+/**
+ * @brief Function to handle HELLO packets.
+ *
+ * This function processes a HELLO packet received from a controller. It validates the packet's data
+ * against the expected situation, controller MAC address, and random identifier. If the validation
+ * is successful, it sends a HELLO response back to the controller and updates the controller's status
+ * accordingly. If the validation fails, it sends a HELLO_REJ response and disconnects the controller.
+ *
+ * @param udp_packet The UDPPacket struct containing the UDP packet data.
+ * @param controller The Controller struct containing information about the controller.
+ * @param udp_socket The UDP socket descriptor.
+ * @param serv_conf The Server struct containing server configuration.
+ */
+void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int udp_socket, struct Server *serv_conf) {
+    char* situation;
+    char dataCpy[80]; /* Make copy in case we need to send it back */
+    strcpy(dataCpy, udp_packet.data);
+
+    strtok(dataCpy, ","); /* Ignore first name */
+    situation = strtok(NULL, ",");
+
+    /* DEBUG
+        printf("Expe: %s,%s,%s\n",controller->data.situation,controller->mac,controller->data.rand);
+        printf("Sent: %s,%s,%s\n",situation,udp_packet.mac,udp_packet.rnd);
+    */
+    pthread_mutex_lock(&mutex);
+        /* Check correct packet data */
+        if((strcmp(situation, controller->data.situation) == 0) && 
+        (strcmp(udp_packet.mac, controller->mac) == 0) && 
+        (strcmp(udp_packet.rnd, controller->data.rand) == 0)){
+            
+            /* Reset last packet time stamp */
+            controller->data.lastPacketTime = time(NULL);
+
+            /* Send HELLO back */
+            sendUdp(udp_socket,
+                    createUDPPacket(HELLO, serv_conf->mac, controller->data.rand, udp_packet.data),
+                    &serv_conf->udp_address
+            );
+            if(controller->data.status == SUBSCRIBED){
+                linfo("Controller %s set to SEND_HELLO status.",false, controller->mac);
+                controller->data.status = SEND_HELLO;
+            }
+
+        } else {
+            /* Send HELLO_REJ */
+            sendUdp(udp_socket,
+                    createUDPPacket(HELLO_REJ, serv_conf->mac, controller->data.rand, ""),
+                    &serv_conf->udp_address
+            );
+            linfo("Controller %s has sent incorrect HELLO packets, DISCONNECTING controller....",false, controller->mac);
+            disconnectController(controller);
+        }
+    pthread_mutex_unlock(&mutex);
+}
+
+
+/**
+ * @brief Function to handle a disconnected controller.
+ *
+ * This function processes a UDP packet received from a disconnected controller.
+ * It checks the packet's identifier and situation. If the packet has the correct identifier
+ * and situation, it starts a subscription process by creating a new thread. If not, it rejects
+ * the connection by sending a [SUBS_REJ] packet back to the controller.
+ *
+ * @param udp_packet The UDPPacket struct containing the UDP packet data.
+ * @param controller The Controller struct containing information about the controller.
+ * @param udp_socket The UDP socket descriptor.
+ * @param serv_conf The Server struct containing server configuration.
+ */
+void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *controller, int udp_socket, struct Server *serv_conf) {
+    char* situation;
+    strtok(udp_packet->data, ","); /* Ignore first name */
+    situation = strtok(NULL, ",");
+
+    /* Check if packet has correct identifier and situation */
+    if((strcmp(udp_packet->rnd, "00000000") == 0) && (strcmp(situation, "000000000000") != 0)) {
+        pthread_t subsThread;
+        /* Create thread arguments */
+        struct subsThreadArgs subsArgs;
+        subsArgs.situation = situation;
+        subsArgs.srvConf = serv_conf;
+        subsArgs.controller = controller;
+        subsArgs.socket = &udp_socket;
+
+        /*Start subscription process*/
+        if (pthread_create(&subsThread, NULL, subsProcess, (void*)&subsArgs) != 0) {
+            lerror("Thread creation failed", true);
+        }
+    } else { 
+        /* Reject Connection sending a [SUBS_REJ] packet */
+        linfo("Denied connection to Controller: %s. Reason: Wrong Situation or Code format.", false, udp_packet->mac);
+        sendUdp(udp_socket, 
+                createUDPPacket(SUBS_REJ, serv_conf->mac, "00000000", "Subscription Denied: Wrong Situation or Code format."), 
+                &serv_conf->udp_address
+        );
     }
 }
