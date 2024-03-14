@@ -203,6 +203,7 @@ void* dataReception(void* args){
     /*Check its SEND_DATA*/
     if(tcp_packet.type != SEND_DATA){
         lwarning("Received unexpected packet by controller %s. Expected [SEND_DATA].",false,tcp_packet.mac);
+        close(dataArgs->client_socket);
         return NULL;
     }
     pthread_mutex_lock(&mutex);

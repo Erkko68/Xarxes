@@ -125,7 +125,7 @@ void handleSubsAck(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddre
     );
     /* Update controller status to WAIT_INFO */
     pthread_mutex_lock(&mutex);
-        linfo("Sent [SUBS_ACK]. Controller %s set to WAIT_INFO status...",false,subsArgs->controller->mac);
+        linfo("Sent [SUBS_ACK]. Controller %s set to WAIT_INFO status...",true,subsArgs->controller->mac);
         subsArgs->controller->data.status = WAIT_INFO;
     pthread_mutex_unlock(&mutex);
 }
@@ -162,7 +162,7 @@ void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddr
         sendUdp(newUDPSocket, createUDPPacket(INFO_ACK, subsArgs->srvConf->mac, rnd, tcpPort), newAddress);
         /* Save controller Data and set SUBSCRIBED status */
         pthread_mutex_lock(&mutex);
-            linfo("Controller: %s successfully subscribed. Status et to SUBSCRIBED.", false, subsArgs->controller->mac);
+            linfo("Controller: %s successfully subscribed. Status set to SUBSCRIBED.", true, subsArgs->controller->mac);
             subsArgs->controller->data.tcp = atoi(tcp);
             inet_ntop(AF_INET, &(newAddress->sin_addr), subsArgs->controller->data.ip, INET_ADDRSTRLEN);
             strcpy(subsArgs->controller->data.rand, rnd);
@@ -172,7 +172,7 @@ void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddr
         pthread_mutex_unlock(&mutex);
     } else {
         /* Invalid SUBS_INFO packet, update status to DISCONNECTED */
-        linfo("Subscription process ended for Controller: %s. Reason: Wrong Info in SUBS_INFO packet. Disconnecting...", false, subsArgs->controller->mac);
+        linfo("Subscription process ended for Controller: %s. Reason: Wrong Info in SUBS_INFO packet. Disconnecting...", true, subsArgs->controller->mac);
         /*Send rejection packet*/
         sendUdp(newUDPSocket, 
                 createUDPPacket(SUBS_REJ, subsArgs->srvConf->mac, "00000000", "Subscription Denied: Wrong Info in SUBS_INFO packet."), 
@@ -225,7 +225,7 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
                     &serv_conf->udp_address
             );
             if(controller->data.status == SUBSCRIBED){
-                linfo("Controller %s set to SEND_HELLO status.",false, controller->mac);
+                linfo("Controller %s set to SEND_HELLO status.",true, controller->mac);
                 controller->data.status = SEND_HELLO;
             }
 
@@ -235,7 +235,7 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
                     createUDPPacket(HELLO_REJ, serv_conf->mac, controller->data.rand, ""),
                     &serv_conf->udp_address
             );
-            linfo("Controller %s has sent incorrect HELLO packets, DISCONNECTING controller....",false, controller->mac);
+            linfo("Controller %s has sent incorrect HELLO packets, DISCONNECTING controller....",true, controller->mac);
             disconnectController(controller);
         }
     pthread_mutex_unlock(&mutex);
