@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Description: A python program that siumaltes the interaction of a client with diferent sensors and sends it to a server.
+Description: A python program that simulates the interaction of a client with diferent sensors and sends it to a server.
              It uses diferent modules located in the utilities_p folder to simplify the readability of this main program.
 Author: Eric Bitria Ribes
 Version: 0.1

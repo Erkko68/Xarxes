@@ -121,7 +121,7 @@ void handleSubsAck(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddre
     /* Create and send SUBS_ACK packet */
     sendUdp(*subsArgs->socket, 
             createUDPPacket(SUBS_ACK, subsArgs->srvConf->mac, rnd, newPort), 
-            &subsArgs->srvConf->udp_address
+            subsArgs->addr
     );
     /* Update controller status to WAIT_INFO */
     pthread_mutex_lock(&mutex);
@@ -197,8 +197,9 @@ void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddr
  * @param controller The Controller struct containing information about the controller.
  * @param udp_socket The UDP socket descriptor.
  * @param serv_conf The Server struct containing server configuration.
+ * @param addr The address of the controller
  */
-void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int udp_socket, struct Server *serv_conf) {
+void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int udp_socket, struct Server *serv_conf, struct sockaddr_in *addr) {
     char* situation;
     char dataCpy[80]; /* Make copy in case we need to send it back */
     strcpy(dataCpy, udp_packet.data);
@@ -222,7 +223,7 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
             /* Send HELLO back */
             sendUdp(udp_socket,
                     createUDPPacket(HELLO, serv_conf->mac, controller->data.rand, udp_packet.data),
-                    &serv_conf->udp_address
+                    addr
             );
             if(controller->data.status == SUBSCRIBED){
                 linfo("Controller %s set to SEND_HELLO status.",true, controller->mac);
@@ -233,7 +234,7 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
             /* Send HELLO_REJ */
             sendUdp(udp_socket,
                     createUDPPacket(HELLO_REJ, serv_conf->mac, controller->data.rand, ""),
-                    &serv_conf->udp_address
+                    addr
             );
             linfo("Controller %s has sent incorrect HELLO packets, DISCONNECTING controller....",true, controller->mac);
             disconnectController(controller);
@@ -254,8 +255,9 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
  * @param controller The Controller struct containing information about the controller.
  * @param udp_socket The UDP socket descriptor.
  * @param serv_conf The Server struct containing server configuration.
+ * @param clienAddr Pointer to the client addr.
  */
-void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *controller, int udp_socket, struct Server *serv_conf) {
+void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *controller, int udp_socket, struct Server *serv_conf, struct sockaddr_in *clienAddr) {
     char* situation;
     strtok(udp_packet->data, ","); /* Ignore first name */
     situation = strtok(NULL, ",");
@@ -269,6 +271,7 @@ void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *control
         subsArgs.srvConf = serv_conf;
         subsArgs.controller = controller;
         subsArgs.socket = &udp_socket;
+        subsArgs.addr = clienAddr;
 
         /*Start subscription process*/
         if (pthread_create(&subsThread, NULL, subsProcess, (void*)&subsArgs) != 0) {
@@ -279,7 +282,7 @@ void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *control
         linfo("Denied connection to Controller: %s. Reason: Wrong Situation or Code format.", false, udp_packet->mac);
         sendUdp(udp_socket, 
                 createUDPPacket(SUBS_REJ, serv_conf->mac, "00000000", "Subscription Denied: Wrong Situation or Code format."), 
-                &serv_conf->udp_address
+                clienAddr
         );
     }
 }

@@ -24,7 +24,8 @@ struct subsThreadArgs {
     struct Server *srvConf;     
     struct Controller *controller;   
     int *socket;                
-    char *situation;           
+    char *situation; 
+    struct sockaddr_in *addr;          
 };
 
 #include "../commons.h"
@@ -71,8 +72,9 @@ void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddr
  * @param controller The Controller struct containing information about the controller.
  * @param udp_socket The UDP socket descriptor.
  * @param serv_conf The Server struct containing server configuration.
+ * @param clienAddr Pointer to the client addr.
  */
-void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *controller, int udp_socket, struct Server *serv_conf);
+void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *controller, int udp_socket, struct Server *serv_conf, struct sockaddr_in *clienAddr);
 
 /**
  * @brief Function to handle HELLO packets.
@@ -81,7 +83,8 @@ void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *control
  * @param controller The Controller struct containing information about the controller.
  * @param udp_socket The UDP socket descriptor.
  * @param serv_conf The Server struct containing server configuration.
+ * @param addr The address of the controller
  */
-void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int udp_socket, struct Server *serv_conf);
+void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int udp_socket, struct Server *serv_conf, struct sockaddr_in *addr);
 
 #endif /* SUBS_FUNCTIONS_H */

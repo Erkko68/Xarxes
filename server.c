@@ -150,20 +150,21 @@ int main(int argc, char *argv[]) {
         
         /* Check if UDP file descriptor has received data */
         if (FD_ISSET(udp_socket, &readfds)) {
+            struct sockaddr_in clienAddr;
             struct UDPPacket udp_packet;
             /* Receive data and find the controller index, if it exists */
             int controllerIndex = 0;
             /*linfo("Received data in file descriptor UDP.", false);*/
-            udp_packet = recvUdp(udp_socket, &serv_conf.udp_address);
+            udp_packet = recvUdp(udp_socket, &clienAddr);
 
             /*Checks if incoming packet has allowed name and mac adress*/
             if ((controllerIndex = isUDPAllowed(udp_packet, controllers)) != -1) {
                 
                 if ((controllers[controllerIndex].data.status == DISCONNECTED)){
-                    handleDisconnected(&udp_packet, &controllers[controllerIndex], udp_socket, &serv_conf);
+                    handleDisconnected(&udp_packet, &controllers[controllerIndex], udp_socket, &serv_conf,&clienAddr);
 
                 } else if (controllers[controllerIndex].data.status == SUBSCRIBED || controllers[controllerIndex].data.status == SEND_HELLO){
-                    handleHello(udp_packet, &controllers[controllerIndex], udp_socket, &serv_conf);
+                    handleHello(udp_packet, &controllers[controllerIndex], udp_socket, &serv_conf,&clienAddr);
 
                 } else {
                     linfo("Denied connection to Controller: %s. Reason: Invalid status.", false, udp_packet.mac);
