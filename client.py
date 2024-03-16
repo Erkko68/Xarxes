@@ -22,56 +22,6 @@ from utilities_p import logs
 from utilities_p import pdu_udp
 from utilities_p import config
 
-
-def stop_receiving(stop_flag):
-    stop_flag.set()
-
-def udp_recv(sock_udp, stop_flag):
-    while not stop_flag.is_set():
-        try:
-            data_available, _, _ = select.select([sock_udp], [], [], 0)
-        except (select.error, OSError, IOError) as e:
-            logs.error(f'Unexpected error when checking for available data on socket {sock_udp}: {e}')
-            return
-
-        if data_available:
-            try:
-                data, addr = sock_udp.recvfrom(103)
-            except Exception as e:
-                logs.error(f'An error has occurred when receiving data from socket {sock_udp}: {e}')
-            # Process Packet
-            process_packet(pdu_udp.from_bytes(data),addr)
-
-    # Close socket
-    sock_udp.close()
-
-def process_packet(packet,addr):
-    # Get packet type
-    ptype = packet.packet_type
-
-    # Excute process depending on the packet received
-    if ptype == 0x00: # CLIENT SHOULD NOT RECEIVE THIS ONE
-        logs.info("Received unexpected [SUBS_REQ] packet. Ignoring...")
-    elif ptype == 0x01:
-        logs.info("Received [SUBS_ACK] packet.")
-        process_subs_ack(packet,addr)
-    elif ptype == 0x02:
-        print("Received [SUBS_REJ] packet.")
-        # Set Flags
-        stop_subs_flag.set()
-    elif ptype == 0x03:
-        print("Received [SUBS_INFO] packet.")
-        # Set Flags
-        stop_subs_flag.set()
-    elif ptype == 0x04:
-        print("Received [INFO_ACK] packet.")
-        # Set Flags
-        stop_subs_flag.set()
-    elif ptype == 0x05:
-        print("Received [SUBS_NACK] packet.")
-        # Set Flags
-        stop_subs_flag.set()
-
 ######################
 # Subscription Phase #
 ######################
@@ -102,76 +52,161 @@ def send_subs_req(server,port):
     # Send packet
     pdu_udp.send(sock_udp, packet, server, port)
 
-def process_subs_ack(packet,addr):
+def send_subs_info(packet: pdu_udp.Packet) -> None:
     """
-    Processes a [SUBS_ACK] packet and if the client status is correct 
-    it will send a new [SUBS_INFO] packet to the server
-
-    PACKET CONTENTS:
-
-    | [SUBS_ACK] | MAC | RAND_NUM | DATA: (NEW UDP PORT) |
+    Sends [SUBS_INFO] packet.
 
     Parameters:
-    - param (packet): The [SUBS_ACK] packet to analyze
-    - param (addr): The addres to send the response packet [SUBS_INFO]
+    - param (packet): The SUBS_ACK packet containing the new UDP port
 
-    Raises:
-    Warning if it receives this packet when the client is not in WAIT_ACK_SUBS status
+    Returns:
+    - None
     """
-    print(vars(packet))
-    if config.client['status'] != 0xa2:
-        logs.warning('Shouldn\'t have received [SUBS_ACK] packet, Ignoring.. ')
-    else:
-        # Store Server Information, MAC, Server IP, RAND
-        server_config = [packet.mac,addr[0],packet.rnd]
-        config.client['Server_Config'] = server_config
+    # Extract packet type, MAC, and random number from configuration
+    packet_type: int = pdu_udp.packet_type['SUBS_INFO']
+    mac: str = config.client['MAC']
+    rnd: str = config.client['Server_Config']['rnd']
+    
+    # Create Packet data: convert TCP port to string, add "," separator, join each Element into a string (CHANGE-IT IN THE FUTURE)
+    data: str = str(config.client['Local_TCP']) + ',' + ';'.join(config.client['Elements'])
 
-        ## Send [SUBS_INFO] packet
-        packet_type = pdu_udp.packet_type['SUBS_INFO']
-        mac = config.client['MAC']
-        num = config.client['Server_Config'][2]
-        # Create Packet data: convert TCP port to string, add "," separator, join each Element into a string (CHANGE-IT IN THE FUTURE)
-        data = str(config.client['Local_TCP']) + ',' + ';'.join(config.client['Elements'])
+    # Create and encode packet
+    spacket: bytes = pdu_udp.to_bytes(pdu_udp.Packet(packet_type, mac, rnd, data))
 
-        # Create and encode packet
-        spacket = pdu_udp.to_bytes(pdu_udp.Packet(packet_type,mac,num,data))
+    # Get UDP Port From Packet
+    udp: int = int(packet.data)
 
-        # Get UDP Port From Packet
-        udp = int(packet.data)
+    # Send packet
+    pdu_udp.send(sock_udp, spacket, config.client['Server_Config']['IP'], udp)
 
-        # Send packet
-        pdu_udp.send(sock_udp,spacket,config.client['Server'],udp)
+def subs_process(subs_attempts: int) -> bool:
+    """
+    Process for handling subscription requests.
 
-def subs_process():
+    Parameters:
+    - param (subs_attempts): The number of subscription attempts made.
+
+    Returns:
+    - bool: True if subscription is successful, False otherwise.
+    """
     t = 1; u = 2; n = 7; o = 3; p = 3; q = 3
-    for _ in range(o):
+    wait = t
+    if subs_attempts < o:
+        subs_attempts += 1
         # Print subscription request msg
-        logs.info(f'Starting subscription request. [{_ + 1}/{o}]', True)
-        sleep = t
+        logs.info(f'Starting subscription request. [{subs_attempts}/{o}]', True)
         for packets_sent in range(n):
+            # Set timeout
+            sock_udp.settimeout(wait)
             # Send packet
             send_subs_req(config.client['Server'], config.client['Srv_UDP'])
-            # Set client status
+            # Update client status
             config.set_status('WAIT_ACK_SUBS')
-            # Wait "sleep" seconds or until a SUBS_ACK packet is received
-            if stop_subs_flag.wait(sleep):
-                break     
-            # Increase sleep time if not response packet is received
-            if sleep <= q * t and packets_sent+1 >= p:
-                sleep += t
-            
-        else:  # If we don't receive response from the server, (break not executed) wait and continue new subscription request.
+            # Wait "t" seconds or until a SUBS_ACK packet is received
+            subs_ack, address = pdu_udp.recvUDP(sock_udp)
+            # No packet received
+            if subs_ack == None:
+                # Increase wait time if a packet is not received
+                if wait <= q * t and packets_sent+1 >= p:
+                    wait += t
+
+            elif subs_ack.packet_type == pdu_udp.packet_type['SUBS_ACK']:
+                # Store server info
+                config.client['Server_Config']['MAC'] = subs_ack.mac
+                config.client['Server_Config']['IP'] = address[0]
+                config.client['Server_Config']['rnd'] = subs_ack.rnd
+                # Send SUBS_INFO
+                send_subs_info(subs_ack)
+                config.set_status('WAIT_ACK_INFO')
+                # Exit loop and start WAIT_ACK_INFO process (below)
+                break
+
+            elif subs_ack.packet_type == pdu_udp.packet_type['SUBS_NACK']:
+                config.set_status('NOT_SUBSCRIBED')
+                continue
+
+            elif subs_ack.packet_type == pdu_udp.packet_type['SUBS_REJ']:
+                logs.info("Received SUBS_REJ")
+                config.set_status('NOT_SUBSCRIBED')
+                # Start new subscription process
+                subs_process(subs_attempts)
+                break
+
+        else:  # If we don't receive response from the server, wait and continue new subscription request.
             time.sleep(u)
             # Set client status
             config.set_status('NOT_SUBSCRIBED')
-            continue
-        break  # Exit subscription phase if data is received
+            # Call new subs_process
+            subs_process(subs_attempts)
     else:
-        # If subscription attempts ended print error message
+        config.set_status('DISCONNECTED')
+        # If subscription attempts ended exit function
         logs.error(f"Could not establish connection with server {config.client['Server']}", True)
+    
+    # WAIT_ACK_INFO process
+    if config.client['status'] == config.status['WAIT_ACK_INFO']:
+        info_ack, address = pdu_udp.recvUDP(sock_udp)
+        # Check server information
+        if (info_ack.packet_type == pdu_udp.packet_type['INFO_ACK'] and
+            info_ack.mac == config.client['Server_Config']['MAC'] and 
+            info_ack.rnd == config.client['Server_Config']['rnd']):
+            # Store server TCP Port
+            config.client['Server_Config']['TCP'] = info_ack.data
+            config.set_status('SUBSCRIBED')
+            return True
+        config.set_status('NOT_SUBSCRIBED')
+        subs_process(subs_attempts)
+
+##########################
+# Subscription Phase END #
+##########################
+        
+#################
+# Hello Process #
+#################
+        
+def hello_send_thread():
+    # Create HELLO packet
+    hello_packet = pdu_udp.Packet(pdu_udp.packet_type['HELLO'], 
+                                  config.client['MAC'], 
+                                  config.client['Server_Config']['rnd'], 
+                                  config.client['Name'] + ',' + config.client['Situation']
+                                  )
+    
+    while not disconnected.is_set():
+        pdu_udp.send(sock_udp, pdu_udp.to_bytes(hello_packet), config.client['Server_Config']['IP'], int(config.client['Srv_UDP']))
+        time.sleep(2)
+    
+    # Exit Hello status
+    return False
+
+
+def hello_recv_thread():
+    # Set max wait time
+    sock_udp.settimeout(2)
+    # Set maximum packets missed
+    missed: int = 0
+    while missed < 3:
+        hello, addr = pdu_udp.recvUDP(sock_udp)
+        if hello == None:
+            missed += 1
+        else:
+            missed = 0
+    # Lost connection with server, stopping reception thread
+    disconnected.set()
+    return
+
+
+def hello_process_thread():
+    send_hello = threading.Thread(target=hello_send_thread)
+
+
+#####################
+# Hello Process END #
+#####################
 
 # Initialization function
-def _init():
+def _init_():
     # Create global variables for sockets
     global sock_udp, sock_tcp
 
@@ -193,18 +228,15 @@ def _init():
     # TCP
 
 def main():
-    ## Flags
-    global stop_subs_flag
-    stop_subs_flag = threading.Event()
-    # Start packet reception thread
-    recv_thread = threading.Thread(target=udp_recv, args=(sock_udp, stop_subs_flag))
-    recv_thread.daemon = True
-    recv_thread.start()
-
+    global subs_attempts
+    global disconnected
+    disconnected = threading.Event()
+    subs_attempts = 0
     # Start Subscription Request
-    subs_process()
+    if subs_process(subs_attempts):
+        print("Subscribed")
 
 # Init call
 if __name__ == "__main__":
-    _init()
+    _init_()
     main()

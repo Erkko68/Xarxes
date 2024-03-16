@@ -43,7 +43,7 @@ client = {
     'Srv_UDP': None,
     'Server': None,
     'Elements': [],
-    'Server_Config':[]
+    'Server_Config':{}
 }
 """
 Define client configurations dictionary
@@ -98,23 +98,28 @@ def init_client(file_path):
         logs.error(f'Unexpected error while reading file {file_path}: {e}')
 
 
-def _process_elements(elements):
+def _process_elements(elements: str) -> list[str]:
     """
-    Auxiliar function to proces the elements of the client.
+    Auxiliar function to process the elements of the client.
 
     Parameters:
     - param (elements): The string containing the elements.
+
+    Returns:
+    - list[str]: The list of processed elements.
     """
     devices = elements.split(';')
     if len(devices) > 10:
         logs.warning("More than 10 devices detected, only the first 10 will be used.")
         devices = devices[:10]
         for device in devices:
-            if not re.match(r'^[A-Z]{3}-\d{1}-[IO]$', device): logs.warning(f"Invalid Device Format: {device}")
+            if not re.match(r'^[A-Z]{3}-\d{1}-[IO]$', device):
+                logs.warning(f"Invalid Device Format: {device}")
     return devices
 
 
-def set_status(name):
+
+def set_status(name: str) -> None:
     """
     Function to set the client status:
         'DISCONNECTED': 0xa0,
@@ -128,5 +133,7 @@ def set_status(name):
     Parameters:
     - param (name): The name of the client status to set.
     """
-    client['status'] = status[name]
+    if client['status'] != status[name]:  # Check if the status is already set to the desired value
+        logs.info(f"Controller Status: {name}", True)
+        client['status'] = status[name]
 

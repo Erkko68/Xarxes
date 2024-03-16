@@ -9,6 +9,7 @@ Author: Eric Bitria Ribes
 Version: 0.3
 Last Modified: 2024-3-1
 """
+import socket
 
 # Import codification module
 from utilities_p import encode
@@ -21,7 +22,9 @@ packet_type = {
     'SUBS_REJ': 0x02,
     'SUBS_INFO': 0x03,
     'INFO_ACK': 0x04,
-    'SUBS_NACK': 0x05
+    'SUBS_NACK': 0x05,
+    'HELLO': 0x10,
+    'HELLO_REJ': 0x11
 }
 """
 Define a dictionary with all possible packet types:
@@ -68,7 +71,7 @@ class Packet:
             logs.error('Invalid PDU_UDP packet initalitation.')
 
 
-def to_bytes(packet):
+def to_bytes(packet: Packet) -> bytes:
     """
     Function that converts a pdu_udp packet to a byte array
 
@@ -89,7 +92,7 @@ def to_bytes(packet):
     return uchar + mac_bytes + rand + data
 
 
-def from_bytes(buffer):
+def from_bytes(buffer: bytes) -> Packet:
     """
     Function that converts a byte array to a pdu_udp packet.
 
@@ -107,30 +110,31 @@ def from_bytes(buffer):
     rand = encode.bytes_to_string(buffer[14:], 9)
     data = encode.bytes_to_string(buffer[23:], 80)
 
-    return Packet(packet_type,mac,rand,data)
+    return Packet(packet_type, mac, rand, data)
 
 
-def send(udp_sockfd, packet, server, port):
+def send(udp_sockfd: socket.socket, packet: bytes, server: str, port: int) -> None:
     """
     Function to send PDU_UDP packet to the specified socket. If the packet hasn't 
-    been sent completly in the first try, sends the remaining information.
+    been sent completely in the first try, sends the remaining information.
 
     Parameters:
-    - param (udp_sockfd): The socket where to send the packet
-    - param (packet): The packet to send
-    - param (client_conf): The client object containing the necessary information of the client
+    - param (udp_sockfd): The socket where to send the packet.
+    - param (packet): The packet to send.
+    - param (server): The server IP address.
+    - param (port): The port to send the packet.
 
     Raises:
     - Exception if the sendto function fails.
     """
     try:
         byte_count = 0
-        while byte_count < len(packet[byte_count:]):
+        while byte_count < len(packet):
             byte_count = udp_sockfd.sendto(packet, (server, port))
             # Print information
-            #logs.info(f'Sent {byte_count} bytes during {logs.get_key(packet[0], packet_type)}.')
+            # logs.info(f'Sent {byte_count} bytes during {logs.get_key(packet[0], packet_type)}.')
             # Check if all bytes were sent
-            if byte_count < len(packet[byte_count:]):
+            if byte_count < len(packet):
                 # If not all bytes were sent truncate the packet and send remaining information.
                 logs.warning(f'Not all bytes were sent during {logs.get_key(packet[0], packet_type)}!, sending remaining information...')
                 packet = packet[byte_count:]
@@ -138,4 +142,28 @@ def send(udp_sockfd, packet, server, port):
         logs.info(f'{logs.get_key(packet[0], packet_type)} packet sent successfully.')
 
     except Exception as e:
-        logs.error(f'Unexpected error when sending {logs.get_key(packet[0], packet_type)}: {e}',True)
+        logs.error(f'Unexpected error when sending {logs.get_key(packet[0], packet_type)}: {e}', True)
+
+
+def recvUDP(sock_udp: socket.socket):
+    """
+    Receive data from a UDP socket.
+
+    Parameters:
+    - param (sock_udp): The UDP socket from which to receive data.
+
+    Returns:
+    - A tuple containing:
+        - Either a Packet object if data is received successfully, or None if there's a timeout.
+        - Either a tuple containing the received data and the address from which it was received, 
+          or None if there's a timeout or an error occurs.
+    """
+    try:
+        data, addr = sock_udp.recvfrom(103)
+
+    except socket.timeout:
+        return None, None
+    except Exception as e:
+        logs.error(f'An error has occurred when receiving data from socket {sock_udp}: {e}')
+    
+    return from_bytes(data), addr

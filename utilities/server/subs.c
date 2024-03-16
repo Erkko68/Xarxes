@@ -169,6 +169,7 @@ void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddr
             strcpy(subsArgs->controller->data.situation, subsArgs->situation);
             storeDevices(devices, subsArgs->controller->data.devices, ";");
             subsArgs->controller->data.status = SUBSCRIBED;
+            subsArgs->controller->data.lastPacketTime = time(NULL);
         pthread_mutex_unlock(&mutex);
     } else {
         /* Invalid SUBS_INFO packet, update status to DISCONNECTED */
