@@ -139,13 +139,13 @@ def send(udp_sockfd: socket.socket, packet: bytes, server: str, port: int) -> No
                 logs.warning(f'Not all bytes were sent during {logs.get_key(packet[0], packet_type)}!, sending remaining information...')
                 packet = packet[byte_count:]
 
-        logs.info(f'{logs.get_key(packet[0], packet_type)} packet sent successfully.')
+        #logs.info(f'{logs.get_key(packet[0], packet_type)} packet sent successfully.')
 
     except Exception as e:
         logs.error(f'Unexpected error when sending {logs.get_key(packet[0], packet_type)}: {e}', True)
 
 
-def recvUDP(sock_udp: socket.socket):
+def recvUDP(sock_udp: socket.socket) -> tuple[bytes, tuple[str,str]]:
     """
     Receive data from a UDP socket.
 

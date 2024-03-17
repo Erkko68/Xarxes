@@ -203,6 +203,13 @@ void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddr
 void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int udp_socket, struct Server *serv_conf, struct sockaddr_in *addr) {
     char* situation;
     char dataCpy[80]; /* Make copy in case we need to send it back */
+
+    /* Check if its SUBS_REJ */
+    if(udp_packet.type == HELLO_REJ){
+        linfo("Controller %s has sent SUBS_REJ packet, DISCONNECTING controller....",true, controller->mac);
+        disconnectController(controller);
+        return;
+    }
     strcpy(dataCpy, udp_packet.data);
 
     strtok(dataCpy, ","); /* Ignore first name */
@@ -217,13 +224,18 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
         if((strcmp(situation, controller->data.situation) == 0) && 
         (strcmp(udp_packet.mac, controller->mac) == 0) && 
         (strcmp(udp_packet.rnd, controller->data.rand) == 0)){
-            
+            char data[80];
             /* Reset last packet time stamp */
             controller->data.lastPacketTime = time(NULL);
 
+            /* Get data */
+            strcpy(data, controller->name);
+            strcat(data, ",");
+            strcat(data, controller->data.situation);
+
             /* Send HELLO back */
             sendUdp(udp_socket,
-                    createUDPPacket(HELLO, serv_conf->mac, controller->data.rand, udp_packet.data),
+                    createUDPPacket(HELLO, serv_conf->mac, controller->data.rand, data),
                     addr
             );
             if(controller->data.status == SUBSCRIBED){
