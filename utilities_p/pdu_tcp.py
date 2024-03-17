@@ -36,13 +36,27 @@ Define a dictionary with all possible packet types:
 """
 
 class Packet:
-    def __init__(self,ptype: int,mac: str,rnd: str,device: str,val: str, info: str):
+    """
+    A class to represent a tcp packet object.
+
+    Parameters:
+    - ptype (int): The type of the packet.
+    - mac (str): The MAC address.
+    - rnd (str): A random number.
+    - device (str): The device.
+    - val (str): The value.
+    - info (str): Additional information.
+    """
+    def __init__(self, ptype: int, mac: str, rnd: str, device: str, val: str, info: str):
         self.ptype = ptype
         self.mac = mac
         self.rnd = rnd
         self.device = device
         self.val = val
         self.info = info
+
+    def __str__(self):
+        return f"Packet Type: {self.ptype}, MAC: {self.mac}, RND: {self.rnd}, Device: {self.device}, Value: {self.val}, Info: {self.info}"
 
 
 def to_bytes(packet: Packet) -> bytes:
@@ -84,3 +98,26 @@ def from_bytes(buffer: bytes) -> Packet:
     info = encode.bytes_to_string(buffer[37:], 80)
 
     return Packet(packet_type, mac, rand, device, value, info)
+
+def recvTCP(sock_tcp: socket.socket) -> Packet:
+    """
+    Receive data from a TCP socket.
+
+    Parameters:
+    - param (sock_tcp): The TCP socket from which to receive data.
+
+    Returns:
+    - A tuple containing:
+        - Either a Packet object if data is received successfully, or None if there's a timeout.
+        - Either a tuple containing the received packet and the address from which it was received, 
+          or None if there's a timeout or an error occurs.
+    """
+    try:
+        data = sock_tcp.recv(118)
+
+    except socket.timeout:
+        return None
+    except Exception as e:
+        logs.error(f'An error has occurred when receiving data from socket {sock_tcp}: {e}')
+    
+    return from_bytes(data)

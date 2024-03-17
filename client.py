@@ -21,6 +21,7 @@ import threading
 from utilities_p import logs
 from utilities_p import pdu_udp
 from utilities_p import config
+from utilities_p import pdu_tcp
 
 ######################
 # Subscription Phase #
@@ -258,6 +259,17 @@ def hello_process_thread():
 # Hello Process END #
 #####################
 
+################
+# Data Process #
+################
+        
+def recv_data():
+    # New client connection
+    client_socket, client_address = sock_tcp.accept()
+    packet = pdu_tcp.recvTCP(client_socket)
+    print(packet)
+    client_socket.close()
+
 # Initialization function
 def _init_():
     # Create global variables for sockets
@@ -277,8 +289,12 @@ def _init_():
     config.init_client(args.c)
 
     # Create sockets
-    sock_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
+    # UDP
+    sock_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  
     # TCP
+    sock_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock_tcp.bind((config.client['Server'], int(config.client['Local_TCP'])))
+    sock_tcp.listen(1)
 
 def main():
     # Create global variables
@@ -291,13 +307,26 @@ def main():
     subs_attempts = 0
 
     # Main loop
-    while True:
-        if disconnected.is_set():
-            # Subscription and periodic communication
-            if subs_process():
+    try:
+        while True:
+            # Set select
+            readable, _, _ = select.select([sock_tcp], [], [], 1)
+
+            # Start subscription and periodic communication
+            if disconnected.is_set() and subs_process():
                 hello_process = threading.Thread(target=hello_process_thread,daemon=True)
                 hello_process.start()
-        
+
+            # TCP data reception/petition
+            if sock_tcp in readable:
+                recv_data()
+
+    except Exception as e:
+        logs.error(f"An exception has ocurred: {e}",True)
+
+    finally:
+        sock_udp.close()
+        sock_tcp.close()
 
 # Program Call
 if __name__ == "__main__":

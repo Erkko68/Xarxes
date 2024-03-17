@@ -50,9 +50,6 @@ class Packet:
     - MAC: THe MAC adress.
     - RND: a random number.
     - DATA: The data to be transimted by the packet.
-
-    Returns:
-    - A new Packet object
     """
     # This allows passing an array or each param individually
     def __init__(self, *args):
@@ -69,6 +66,9 @@ class Packet:
             self.data = args[3]
         else:
             logs.error('Invalid PDU_UDP packet initalitation.')
+
+    def __str__(self):
+        return f"Packet Type: {self.packet_type}, MAC: {self.mac}, RND: {self.rnd}, DATA: {self.data}"
 
 
 def to_bytes(packet: Packet) -> bytes:
@@ -145,7 +145,7 @@ def send(udp_sockfd: socket.socket, packet: bytes, server: str, port: int) -> No
         logs.error(f'Unexpected error when sending {logs.get_key(packet[0], packet_type)}: {e}', True)
 
 
-def recvUDP(sock_udp: socket.socket) -> tuple[bytes, tuple[str,str]]:
+def recvUDP(sock_udp: socket.socket) -> tuple[Packet, tuple[str,str]]:
     """
     Receive data from a UDP socket.
 

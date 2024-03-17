@@ -25,7 +25,7 @@ const char* getTCPName(enum TCPType type) {
         case SEND_DATA: return "SEND_DATA";
         case SET_DATA: return "SET_DATA";
         case GET_DATA: return "GET_DATA";
-        case DATA_ACK: return "DATA_ACK";
+        case DATA_ACK: return "GET_DATA";
         case DATA_NACK: return "DATA_NACK";
         case DATA_REJ: return "DATA_REJ";
         default: return "UNKNOWN";
