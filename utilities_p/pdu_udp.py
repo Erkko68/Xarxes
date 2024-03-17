@@ -1,6 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-# utilities_p/logs.py
+# utilities_p/pdu_udp.py
 
 """
 Module Methods: Subfolder that contains auxiliar methods for the main client.py program.

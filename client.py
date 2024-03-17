@@ -4,7 +4,7 @@
 Description: A python program that simulates the interaction of a client with diferent sensors and sends it to a server.
              It uses diferent modules located in the utilities_p folder to simplify the readability of this main program.
 Author: Eric Bitria Ribes
-Version: 0.1
+Version: 0.4
 Last Modified: 2024-3-1
 """
 
@@ -299,7 +299,7 @@ def main():
                 hello_process.start()
         
 
-# Init call
+# Program Call
 if __name__ == "__main__":
     _init_()
     main()
