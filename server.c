@@ -67,6 +67,49 @@ void quit(int signum) {
     exit(EXIT_SUCCESS);
 }
 
+void* handleUDPConnection(void* udp_args){
+    struct Server *serv_conf = (struct Server*)udp_args;
+    struct sockaddr_in clienAddr;
+    struct UDPPacket udp_packet;
+    /* Receive data and find the controller index, if it exists */
+    int controllerIndex = 0;
+    /*linfo("Received data in file descriptor UDP.", false);*/
+    udp_packet = recvUdp(udp_socket, &clienAddr);
+
+    /*Checks if incoming packet has allowed name and mac adress*/
+    if ((controllerIndex = isUDPAllowed(udp_packet, controllers)) != -1) {
+        
+        if ((controllers[controllerIndex].data.status == DISCONNECTED)){
+            handleDisconnected(&udp_packet, &controllers[controllerIndex], udp_socket, serv_conf, &clienAddr);
+
+        } else if (controllers[controllerIndex].data.status == SUBSCRIBED || controllers[controllerIndex].data.status == SEND_HELLO){
+            handleHello(udp_packet, &controllers[controllerIndex], udp_socket, serv_conf, &clienAddr);
+
+        } else {
+            linfo("Denied connection to Controller: %s. Reason: Invalid status.", false, udp_packet.mac);
+            sendUdp(udp_socket, 
+                createUDPPacket(SUBS_REJ, serv_conf->mac, "00000000", "Subscription Denied: Invalid Status."), 
+                &clienAddr
+            );
+            pthread_mutex_lock(&mutex);
+                controllers[controllerIndex].data.lastPacketTime = 0; /* Reset last packet time */
+            pthread_mutex_unlock(&mutex);
+        }
+
+    }else { /* Reject Connection sending a [SUBS_REJ] packet */
+        linfo("Denied connection to Controller: %s. Reason: Not listed in allowed Controllers file.", false, udp_packet.mac);
+        sendUdp(udp_socket, 
+                createUDPPacket(SUBS_REJ, serv_conf->mac, "00000000", "Subscription Denied: You are not listed in allowed Controllers file."), 
+                &clienAddr
+        );
+        pthread_mutex_lock(&mutex);
+            controllers[controllerIndex].data.lastPacketTime = 0; /* Reset last packet time */
+        pthread_mutex_unlock(&mutex);
+    }
+
+    return NULL;
+}
+
 int main(int argc, char *argv[]) {
     /*Struct for server configuration*/
     struct Server serv_conf;
@@ -150,42 +193,9 @@ int main(int argc, char *argv[]) {
         
         /* Check if UDP file descriptor has received data */
         if (FD_ISSET(udp_socket, &readfds)) {
-            struct sockaddr_in clienAddr;
-            struct UDPPacket udp_packet;
-            /* Receive data and find the controller index, if it exists */
-            int controllerIndex = 0;
-            /*linfo("Received data in file descriptor UDP.", false);*/
-            udp_packet = recvUdp(udp_socket, &clienAddr);
-
-            /*Checks if incoming packet has allowed name and mac adress*/
-            if ((controllerIndex = isUDPAllowed(udp_packet, controllers)) != -1) {
-                
-                if ((controllers[controllerIndex].data.status == DISCONNECTED)){
-                    handleDisconnected(&udp_packet, &controllers[controllerIndex], udp_socket, &serv_conf, &clienAddr);
-
-                } else if (controllers[controllerIndex].data.status == SUBSCRIBED || controllers[controllerIndex].data.status == SEND_HELLO){
-                    handleHello(udp_packet, &controllers[controllerIndex], udp_socket, &serv_conf, &clienAddr);
-
-                } else {
-                    linfo("Denied connection to Controller: %s. Reason: Invalid status.", false, udp_packet.mac);
-                    sendUdp(udp_socket, 
-                        createUDPPacket(SUBS_REJ, serv_conf.mac, "00000000", "Subscription Denied: Invalid Status."), 
-                        &clienAddr
-                    );
-                    pthread_mutex_lock(&mutex);
-                        controllers[i].data.lastPacketTime = 0; /* Reset last packet time */
-                    pthread_mutex_unlock(&mutex);
-                }
-
-            }else { /* Reject Connection sending a [SUBS_REJ] packet */
-                linfo("Denied connection to Controller: %s. Reason: Not listed in allowed Controllers file.", false, udp_packet.mac);
-                sendUdp(udp_socket, 
-                        createUDPPacket(SUBS_REJ, serv_conf.mac, "00000000", "Subscription Denied: You are not listed in allowed Controllers file."), 
-                        &clienAddr
-                );
-                pthread_mutex_lock(&mutex);
-                    controllers[i].data.lastPacketTime = 0; /* Reset last packet time */
-                pthread_mutex_unlock(&mutex);
+            pthread_t udpThread;
+            if(pthread_create(&udpThread, NULL, handleUDPConnection, (void *)&serv_conf) < 0){
+                lerror("Unexpected error while starting new TCP thread",true);
             }
         }
 
@@ -274,5 +284,4 @@ int main(int argc, char *argv[]) {
             }
         }
     }
-
 }

@@ -425,7 +425,7 @@ def send_data(device: str) -> None:
         logs.warning("Received unexpected data during send validation. Disconnecting")
         config.set_status('NOT_SUBSCRIBED')
         disconnected.set()
-        
+
     server_socket.close()
     return
     
@@ -524,7 +524,7 @@ def _init_():
     sock_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  
     # TCP
     sock_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock_tcp.bind((config.client['Server'], int(config.client['Local_TCP'])))
+    #sock_tcp.bind((config.client['Server'], int(config.client['Local_TCP'])))
     sock_tcp.listen(1)
 
 def main():

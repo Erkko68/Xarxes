@@ -34,9 +34,14 @@ struct subsThreadArgs {
  * @brief Function to handle subscription process.
  *
  * @param args Pointer to a struct subsThreadArgs containing necessary arguments.
+ * @param socket Pointer to the UDP socket for communication with the controller.
+ * @param addr Pointer to the socket address structure containing controller's address.
+ * @param controller Pointer to the struct containing controller information.
+ * @param situation Pointer to the situation information.
+ * @param srvConf Pointer to the server configuration struct.
  * @return NULL
  */
-void* subsProcess(void *args);
+void subsProcess(int *socket, struct sockaddr_in *addr, struct Controller *controller,  char *situation, struct Server *srvConf);
 
 /**
  * @brief Function to set up a new UDP socket and bind to a random port
@@ -53,17 +58,21 @@ int setupUDPSocket(struct sockaddr_in *newAddress);
  * @param newAddress Pointer to sockaddr_in structure
  * @param rnd Random identifier
  */
-void handleSubsAck(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddress, char *rnd);
+void handleSubsAck(struct Controller *controller, struct Server *srvConf, struct sockaddr_in *newAddress, struct sockaddr_in *addr, int udpSocket, char *rnd);
 
 /**
- * @brief Function to handle SUBS_INFO
- * 
- * @param subsArgs Pointer to subscription thread arguments
- * @param newAddress Pointer to sockaddr_in structure
- * @param rnd Random identifier
- * @param newUDPSocket File descriptor of the UDP socket
+ * @brief Handles the SUBS_ACK process.
+ *
+ * This function handles the SUBS_ACK process by sending a SUBS_ACK packet and updating the controller status.
+ *
+ * @param controller Pointer to the struct containing controller information.
+ * @param srvConf Pointer to the server configuration struct.
+ * @param newAddress Pointer to a sockaddr_in structure containing the new socket address information.
+ * @param addr Pointer to a sockaddr_in structure containing the original socket address information.
+ * @param udpSocket The UDP socket for communication.
+ * @param rnd Random identifier.
  */
-void handleSubsInfo(struct subsThreadArgs *subsArgs, struct sockaddr_in *newAddress, char *rnd, int newUDPSocket);
+void handleSubsInfo(struct Server *srvConf, struct sockaddr_in *newAddress, struct Controller *controller, char *rnd, char *situation, int newUDPSocket);
 
 /**
  * @brief Function to handle a disconnected controller.
