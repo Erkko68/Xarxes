@@ -5,7 +5,7 @@ Description: A python program that simulates the interaction of a client with di
              It uses diferent modules located in the utilities_p folder to simplify the readability of this main program.
 Author: Eric Bitria Ribes
 Version: 0.4
-Last Modified: 2024-3-1
+Last Modified: 2024-3-18
 """
 
 # Args
@@ -378,56 +378,56 @@ def send_data(device: str) -> None:
     Returns:
     - None
     """
-    try:
-        # Create new TCP socket
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcp_sock:
-            # Connect to the server
-            tcp_sock.connect((config.client['Server'], config.client['Srv_UDP']))
-            
-            # Send the packet
-            pdu_tcp.send(tcp_sock,
-                pdu_tcp.to_bytes(
-                    pdu_tcp.Packet(
-                        pdu_tcp.packet_type['DATA_ACK'],
-                        config.client['MAC'],
-                        config.client['Server_Config']['rnd'],
-                        device,config.client['Elements'][device],
-                        ""
-                    )
-                )
-            )
-        # Wait for server response
-        tcp_sock.settimeout(3)
-        response = pdu_tcp.recvTCP(tcp_sock)
+    # Create new TCP socket
 
-        if response == None:
-            logs.warning("Haven't received response after send command. Closing communication...")
-
-        elif (response.mac == config.client['Server_Config']['MAC'] and 
-              response.rnd == config.client['Server_Config']['rnd']):
-            
-            logs.warning("Received wrong server credentials in send packet response.")
-            config.set_status('NOT_SUBSCRIBED')
-            disconnected.set()
-        
-        elif response.ptype == pdu_tcp.packet_type['DATA_ACK']:
-            logs.info("Server succesfully stored device info.")
-        elif response.ptype == pdu_tcp.packet_type['DATA_NACK']:
-            logs.warning(f"Send rejected: {response.info}")
-        elif response.ptype == pdu_tcp.packet_type['DATA_REJ']:
-            logs.warning("Server rejected data. Disconnecting...")
-            config.set_status('NOT_SUBSCRIBED')
-            disconnected.set()
-        else:
-            logs.warning("Received unexpected data during send validation. Disconnecting")
-            config.set_status('NOT_SUBSCRIBED')
-            disconnected.set()
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # Connect to the server
+    server_socket.connect((config.client['Server'], int(config.client['Server_Config']['TCP'])))
     
-    except Exception as e:
-        logs.error(f"Unexpected error while executing send: {e}")
-    finally:
-        tcp_sock.close()
-        return
+    # Send the packet
+    pdu_tcp.send(server_socket,
+        pdu_tcp.to_bytes(
+            pdu_tcp.Packet(
+                pdu_tcp.packet_type['SEND_DATA'],
+                config.client['MAC'],
+                config.client['Server_Config']['rnd'],
+                device,config.client['Elements'][device],
+                ""
+            )
+        )
+    )
+    # Wait for server response
+    server_socket.settimeout(3)
+    response = pdu_tcp.recvTCP(server_socket)
+
+    if response == None:
+        logs.warning("Haven't received response after send command. Closing communication...")
+
+    elif (response.mac != config.client['Server_Config']['MAC'] or 
+            response.rnd != config.client['Server_Config']['rnd']):
+        
+        logs.warning("Received wrong server credentials in send packet response.")
+        config.set_status('NOT_SUBSCRIBED')
+        disconnected.set()
+    
+    elif response.ptype == pdu_tcp.packet_type['DATA_ACK']:
+        logs.info("Server succesfully stored device info.")
+
+    elif response.ptype == pdu_tcp.packet_type['DATA_NACK']:
+        logs.warning(f"Send rejected: {response.info}")
+
+    elif response.ptype == pdu_tcp.packet_type['DATA_REJ']:
+        logs.warning("Server rejected data. Disconnecting...")
+        config.set_status('NOT_SUBSCRIBED')
+        disconnected.set()
+
+    else:
+        logs.warning("Received unexpected data during send validation. Disconnecting")
+        config.set_status('NOT_SUBSCRIBED')
+        disconnected.set()
+        
+    server_socket.close()
+    return
     
 ####################
 # Data Process END #
@@ -436,9 +436,71 @@ def send_data(device: str) -> None:
 ############
 # COMMANDS #
 ############
-    
 
-    
+def stat():
+    print("******************** CONTROLLER DATA *********************")
+    print(f"MAC: {config.client['MAC']}, Nom: {config.client['Name']}, Situació: {config.client['Situation']}\n")
+    print(f"Status: {config.client['MAC']}\n")
+    print("    Device       Value")
+    print("    ------       -----")
+    for key, value in config.client['Elements'].items():
+        print(f"    {key}       {value}")
+    print("\n**********************************************************")
+
+def selector(line: str) -> None:
+    """
+    Process user input commands.
+
+    Parameters:
+    - line (str): The input command line.
+
+    Returns:
+    - None
+    """
+    # Split the input line into tokens
+    tokens = line.strip().split()
+
+    if not tokens:
+        return
+
+    # Extract the command and its arguments
+    command = tokens[0]
+    args = tokens[1:]
+
+    # Process the command
+    if command == 'stat':
+        stat()
+    elif command == 'set':
+        if len(args) != 2:
+            print("Usage: set <device-name> <value>")
+            return
+        pass
+    elif command == 'send':
+        if len(args) != 1:
+            print("Usage: send <device-name>")
+            return
+        if args[0] in config.client['Elements'].keys():
+            data = threading.Thread(target=send_data,args=(args[0],),daemon=True)
+            data.start()
+        else:
+            logs.warning("Device not found",True)
+
+    elif command == 'quit':
+        disconnected.set()
+        sock_udp.close()
+        sock_tcp.close()
+        exit()
+    else:
+        print("Available commands:")
+        print("- stat: Displays controller and devices information.")
+        print("- set <device-name> <value>: Sets the value of a device.")
+        print("- send <device-name>: Sends the value of a device to the server.")
+        print("- quit: Exits the program.")
+
+################
+# COMMANDS END #
+################
+        
 # Initialization function
 def _init_():
     # Create global variables for sockets
@@ -495,15 +557,15 @@ def main():
                 
                 # Commands
                 elif sock_or_input is sys.stdin:
-                    # Read command input
-                    command = sys.stdin.readline().strip()
-                    # Process the command
-                    
+                    if config.client['status'] == config.status['SEND_HELLO']:
+                        # Read command input
+                        selector(sys.stdin.readline().strip())
 
     except Exception as e:
         logs.error(f"An exception has ocurred: {e}",True)
 
     finally:
+        disconnected.set()
         sock_udp.close()
         sock_tcp.close()
 
