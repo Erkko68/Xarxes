@@ -6,12 +6,6 @@
 
 This program facilitates communication between a server and multiple controllers using TCP and UDP protocols. It handles server configuration, socket creation, controller connections, and data transmission/reception.
 
-## Author
-
-- **Author:** Eric Bitria Ribes
-- **Version:** 1.1
-- **Date:** 2024-3-18
-
 ## Scope
 
 - **Server Configuration Management:** Reads and initializes server settings from configuration files.
@@ -122,6 +116,6 @@ Once the server program is running, you can interact with it using the following
 This project is licensed under the [MIT License](./LICENSE).
 
 ## Author
-- [Eric Bitria Ribes](https://github.com/Erkko68)
-## Version
-- 0.4
+- **[Eric Bitria Ribes]**(https://github.com/Erkko68)
+- **Version:** 1.1
+- **Date:** 2024-3-18
