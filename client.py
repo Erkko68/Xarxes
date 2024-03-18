@@ -447,6 +447,13 @@ def stat():
         print(f"    {key}       {value}")
     print("\n**********************************************************")
 
+def set_val(device: str, value: str):
+    if len(value) > 6:
+        print("Value must be maximum 6 characters long.")
+    else:
+        config.client['Elements'][device] = value
+        logs.info(f"Updated data for device {device}: {value}")
+
 def selector(line: str) -> None:
     """
     Process user input commands.
@@ -474,7 +481,10 @@ def selector(line: str) -> None:
         if len(args) != 2:
             print("Usage: set <device-name> <value>")
             return
-        pass
+        if args[0] in config.client['Elements'].keys():
+            set_val(args[0],args[1])
+        else:
+            logs.warning("Device not found",True)
     elif command == 'send':
         if len(args) != 1:
             print("Usage: send <device-name>")
@@ -524,7 +534,6 @@ def _init_():
     sock_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  
     # TCP
     sock_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #sock_tcp.bind((config.client['Server'], int(config.client['Local_TCP'])))
     sock_tcp.listen(1)
 
 def main():

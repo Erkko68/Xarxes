@@ -4,8 +4,8 @@
  * 
  * 
  * @author Eric Bitria Ribes
- * @version 0.3
- * @date 2024-3-14
+ * @version 0.4
+ * @date 2024-3-18
  */
 
 #ifndef SUBS_FUNCTIONS_H
@@ -33,7 +33,6 @@ struct subsThreadArgs {
 /**
  * @brief Function to handle subscription process.
  *
- * @param args Pointer to a struct subsThreadArgs containing necessary arguments.
  * @param socket Pointer to the UDP socket for communication with the controller.
  * @param addr Pointer to the socket address structure containing controller's address.
  * @param controller Pointer to the struct containing controller information.
