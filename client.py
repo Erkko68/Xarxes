@@ -9,6 +9,7 @@ Last Modified: 2024-3-1
 """
 
 # Args
+import sys
 import argparse
 # Sockets
 import socket, select
@@ -68,8 +69,8 @@ def send_subs_info(packet: pdu_udp.Packet) -> None:
     mac: str = config.client['MAC']
     rnd: str = config.client['Server_Config']['rnd']
     
-    # Create Packet data: convert TCP port to string, add "," separator, join each Element into a string (CHANGE-IT IN THE FUTURE)
-    data: str = str(config.client['Local_TCP']) + ',' + ';'.join(config.client['Elements'])
+    # Create Packet data: convert TCP port to string, add "," separator, join each Element into a string
+    data: str = str(config.client['Local_TCP']) + ',' + ';'.join(config.client['Elements'].keys())
 
     # Create and encode packet
     spacket: bytes = pdu_udp.to_bytes(pdu_udp.Packet(packet_type, mac, rnd, data))
@@ -83,9 +84,6 @@ def send_subs_info(packet: pdu_udp.Packet) -> None:
 def subs_process() -> bool:
     """
     Process for handling subscription requests.
-
-    Parameters:
-    - param (subs_attempts): The number of subscription attempts made.
 
     Returns:
     - bool: True if subscription is successful, False otherwise.
@@ -125,6 +123,8 @@ def subs_process() -> bool:
 
             elif subs_ack.packet_type == pdu_udp.packet_type['SUBS_NACK']:
                 config.set_status('NOT_SUBSCRIBED')
+                if wait <= q * t and packets_sent+1 >= p:
+                    wait += t
                 continue
 
             elif subs_ack.packet_type == pdu_udp.packet_type['SUBS_REJ']:
@@ -263,13 +263,182 @@ def hello_process_thread():
 # Data Process #
 ################
         
-def recv_data():
-    # New client connection
-    client_socket, client_address = sock_tcp.accept()
-    packet = pdu_tcp.recvTCP(client_socket)
-    print(packet)
-    client_socket.close()
+def set_data(packet: pdu_tcp.Packet, socket: socket.socket) -> None:
+    """
+    Processes a SET_DATA request and updates the device value if it exists in the client's configuration.
+    Sends a corresponding data packet notification if the device is a sensor.
 
+    Parameters:
+    - packet (pdu_tcp.Packet): The received SET_DATA request packet.
+    - socket (socket.socket): The socket used for communication.
+
+    Returns:
+    - None
+    """
+    if packet.device in config.client['Elements'].keys():
+        if packet.device[-1] == "I":
+            config.client['Elements'][packet.device] = packet.val
+            logs.info(f"Device {packet.device} updated with value: {packet.val}.")
+
+            pdu_tcp.send(socket,
+                         pdu_tcp.to_bytes(
+                             pdu_tcp.Packet(
+                                 pdu_tcp.packet_type['DATA_ACK'],
+                                 config.client['MAC'],
+                                 config.client['Server_Config']['rnd'],
+                                 packet.device,packet.val,""
+                                )
+                            )
+                        )
+        else:
+            logs.warning("Device is a sensor and can't be assigned with values.")
+            pdu_tcp.send(socket,
+                         pdu_tcp.to_bytes(pdu_tcp.Packet(pdu_tcp.packet_type['DATA_NACK'],config.client['MAC'],config.client['Server_Config']['rnd'],"","","Device is a sensor and can't be assigned with values."))
+                        )
+    else:
+        logs.warning("Received SET_DATA request for an unowned device.")
+        pdu_tcp.send(socket,
+                     pdu_tcp.to_bytes(pdu_tcp.Packet(pdu_tcp.packet_type['DATA_NACK'],config.client['MAC'],config.client['Server_Config']['rnd'],"","","Received SET_DATA request for an unowned device."))
+                     )
+
+def get_data(packet: pdu_tcp.Packet, socket: socket.socket) -> None:
+    """
+    Processes a GET_DATA request and sends the corresponding device value if it exists in the client's configuration.
+    Sends a warning if the device is not owned by the client.
+
+    Parameters:
+    - packet (pdu_tcp.Packet): The received GET_DATA request packet.
+    - socket (socket.socket): The socket used for communication.
+
+    Returns:
+    - None
+    """
+    if packet.device in config.client['Elements'].keys():
+        config.client['Elements'][packet.device] = packet.val
+        logs.info(f"Sent {packet.device} value: {packet.val}.")
+
+        pdu_tcp.send(socket,
+                    pdu_tcp.to_bytes(
+                        pdu_tcp.Packet(
+                            pdu_tcp.packet_type['DATA_ACK'],
+                            config.client['MAC'],
+                            config.client['Server_Config']['rnd'],
+                            packet.device,packet.val,""
+                            )
+                        )
+                    )
+    else:
+        logs.warning("Received GET_DATA request for an unowned device.")
+        pdu_tcp.send(socket,
+                    pdu_tcp.to_bytes(pdu_tcp.Packet(pdu_tcp.packet_type['DATA_NACK'],config.client['MAC'],config.client['Server_Config']['rnd'],"","","Received GET_DATA request for an unowned device."))
+                    )
+
+def recv_data():
+    # Accept new server connection
+    server_socket, server_address = sock_tcp.accept()
+    # Set max recv timeout
+    server_socket.settimeout(3)
+    packet = pdu_tcp.recvTCP(server_socket)
+
+    if packet == None:
+        logs.warning("Data packet not received. Closing connection with server.")
+        server_socket.close()
+        return
+    
+    if (packet.mac == config.client['Server_Config']['MAC'] and 
+        packet.rnd == config.client['Server_Config']['rnd'] and 
+        server_address[0] == config.client['Server_Config']['IP']):
+
+        if packet.ptype == pdu_tcp.packet_type['SET_DATA']:
+            set_data(packet,server_socket)
+        elif packet.ptype == pdu_tcp.packet_type['GET_DATA']:
+            get_data(packet,server_socket)
+        else:
+            logs.warning("Received unexpected packet.")
+            config.set_status('NOT_SUBSCRIBED')
+            disconnected.set()
+    else:
+        logs.warning(f"Received wrong data packet credentials.")
+        pdu_tcp.send(server_socket,
+                     pdu_tcp.to_bytes(pdu_tcp.Packet(pdu_tcp.packet_type['DATA_REJ'],config.client['MAC'],config.client['Server_Config']['rnd'],packet.device,packet.val,"Wrong packet credentials."))
+                    )
+        config.set_status('NOT_SUBSCRIBED')
+        disconnected.set()
+
+    server_socket.close()
+    return
+
+def send_data(device: str) -> None:
+    """
+    Sends data of the specified device to the server.
+
+    Parameters:
+    - device (str): The device identifier.
+
+    Returns:
+    - None
+    """
+    try:
+        # Create new TCP socket
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcp_sock:
+            # Connect to the server
+            tcp_sock.connect((config.client['Server'], config.client['Srv_UDP']))
+            
+            # Send the packet
+            pdu_tcp.send(tcp_sock,
+                pdu_tcp.to_bytes(
+                    pdu_tcp.Packet(
+                        pdu_tcp.packet_type['DATA_ACK'],
+                        config.client['MAC'],
+                        config.client['Server_Config']['rnd'],
+                        device,config.client['Elements'][device],
+                        ""
+                    )
+                )
+            )
+        # Wait for server response
+        tcp_sock.settimeout(3)
+        response = pdu_tcp.recvTCP(tcp_sock)
+
+        if response == None:
+            logs.warning("Haven't received response after send command. Closing communication...")
+
+        elif (response.mac == config.client['Server_Config']['MAC'] and 
+              response.rnd == config.client['Server_Config']['rnd']):
+            
+            logs.warning("Received wrong server credentials in send packet response.")
+            config.set_status('NOT_SUBSCRIBED')
+            disconnected.set()
+        
+        elif response.ptype == pdu_tcp.packet_type['DATA_ACK']:
+            logs.info("Server succesfully stored device info.")
+        elif response.ptype == pdu_tcp.packet_type['DATA_NACK']:
+            logs.warning(f"Send rejected: {response.info}")
+        elif response.ptype == pdu_tcp.packet_type['DATA_REJ']:
+            logs.warning("Server rejected data. Disconnecting...")
+            config.set_status('NOT_SUBSCRIBED')
+            disconnected.set()
+        else:
+            logs.warning("Received unexpected data during send validation. Disconnecting")
+            config.set_status('NOT_SUBSCRIBED')
+            disconnected.set()
+    
+    except Exception as e:
+        logs.error(f"Unexpected error while executing send: {e}")
+    finally:
+        tcp_sock.close()
+        return
+    
+####################
+# Data Process END #
+####################
+    
+############
+# COMMANDS #
+############
+    
+
+    
 # Initialization function
 def _init_():
     # Create global variables for sockets
@@ -310,16 +479,26 @@ def main():
     try:
         while True:
             # Set select
-            readable, _, _ = select.select([sock_tcp], [], [], 1)
+            readable, _, _ = select.select([sock_tcp,sys.stdin], [], [], 1)
 
             # Start subscription and periodic communication
             if disconnected.is_set() and subs_process():
                 hello_process = threading.Thread(target=hello_process_thread,daemon=True)
                 hello_process.start()
+            
+            # Check file descriptors
+            for sock_or_input in readable:
 
-            # TCP data reception/petition
-            if sock_tcp in readable:
-                recv_data()
+                # TCP data reception
+                if sock_or_input is sock_tcp:
+                    recv_data()
+                
+                # Commands
+                elif sock_or_input is sys.stdin:
+                    # Read command input
+                    command = sys.stdin.readline().strip()
+                    # Process the command
+                    
 
     except Exception as e:
         logs.error(f"An exception has ocurred: {e}",True)

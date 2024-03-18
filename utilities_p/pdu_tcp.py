@@ -68,7 +68,7 @@ def to_bytes(packet: Packet) -> bytes:
     Returns:
     - A byte array
     """
-    uchar = bytes([packet.packet_type])
+    uchar = bytes([packet.ptype])
     mac_bytes = encode.string_to_bytes(packet.mac, 13)
     rand = encode.string_to_bytes(packet.rnd, 9)
     device = encode.string_to_bytes(packet.device,8)
@@ -107,10 +107,7 @@ def recvTCP(sock_tcp: socket.socket) -> Packet:
     - param (sock_tcp): The TCP socket from which to receive data.
 
     Returns:
-    - A tuple containing:
-        - Either a Packet object if data is received successfully, or None if there's a timeout.
-        - Either a tuple containing the received packet and the address from which it was received, 
-          or None if there's a timeout or an error occurs.
+    - Either a Packet object if data is received successfully, or None if there's a timeout.
     """
     try:
         data = sock_tcp.recv(118)
@@ -121,3 +118,20 @@ def recvTCP(sock_tcp: socket.socket) -> Packet:
         logs.error(f'An error has occurred when receiving data from socket {sock_tcp}: {e}')
     
     return from_bytes(data)
+
+
+def send(socket: socket.socket,packet: bytes) -> None:
+    """
+    Function to send a packet through TCP connection.
+
+    Parameters:
+    - param (packet): The packet to send.
+    - param (socket): The TCP socket object to use for sending.
+    """
+    try:
+        # Send the packet
+        socket.sendall(packet)
+        #logs.info(f'{logs.get_key(packet[0], packet_type)} packet sent successfully.')
+    
+    except Exception as e:
+        logs.error(f'Unexpected error when sending {logs.get_key(packet[0], packet_type)}: {e}', True)

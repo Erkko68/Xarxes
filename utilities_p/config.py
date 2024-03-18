@@ -42,7 +42,7 @@ client = {
     'Local_TCP': None,
     'Srv_UDP': None,
     'Server': None,
-    'Elements': [],
+    'Elements': {},
     'Server_Config':{}
 }
 """
@@ -98,7 +98,8 @@ def init_client(file_path):
         logs.error(f'Unexpected error while reading file {file_path}: {e}')
 
 
-def _process_elements(elements: str) -> list[str]:
+
+def _process_elements(elements: str) -> dict:
     """
     Auxiliar function to process the elements of the client.
 
@@ -106,7 +107,7 @@ def _process_elements(elements: str) -> list[str]:
     - param (elements): The string containing the elements.
 
     Returns:
-    - list[str]: The list of processed elements.
+    - dict: A dictionary where each device has a name and a default value associated with None.
     """
     devices = elements.split(';')
     if len(devices) > 10:
@@ -115,8 +116,12 @@ def _process_elements(elements: str) -> list[str]:
         for device in devices:
             if not re.match(r'^[A-Z]{3}-\d{1}-[IO]$', device):
                 logs.warning(f"Invalid Device Format: {device}")
-    return devices
-
+    
+    device_dict = {}
+    for device in devices:
+        device_dict[device] = "NONE"
+    
+    return device_dict
 
 
 def set_status(name: str) -> None:
