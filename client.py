@@ -282,7 +282,7 @@ def set_data(packet: pdu_tcp.Packet, socket: socket.socket) -> None:
     """
     if packet.device in config.client['Elements'].keys():
         if packet.device[-1] == "I":
-            config.client['Elements'][packet.device] = packet.val
+            config.client['Elements'][packet.device] = str(packet.val)
             logs.info(f"Device {packet.device} updated with value: {packet.val}.")
 
             pdu_tcp.send(socket,
@@ -319,7 +319,6 @@ def get_data(packet: pdu_tcp.Packet, socket: socket.socket) -> None:
     - None
     """
     if packet.device in config.client['Elements'].keys():
-        config.client['Elements'][packet.device] = packet.val
         logs.info(f"Sent {packet.device} value: {packet.val}.")
 
         pdu_tcp.send(socket,
@@ -618,7 +617,7 @@ def main():
     except Exception as e:
         logs.error(f"An exception has ocurred: {e}",True)
     except KeyboardInterrupt:
-        
+
         disconnected.set()
         sock_udp.close()
         if tcp_on.is_set():

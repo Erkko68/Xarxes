@@ -129,7 +129,7 @@ void handleSubsAck(struct Controller *controller, struct Server *srvConf, struct
     );
     /* Update controller status to WAIT_INFO */
     pthread_mutex_lock(&mutex);
-        linfo("Sent [SUBS_ACK]. Controller %s set to [WAIT_INFO]",true,controller->name);
+        linfo("Controller %s [WAIT_INFO]. Sent [SUBS_ACK]. ",true,controller->name);
         controller->data.status = WAIT_INFO;
     pthread_mutex_unlock(&mutex);
 }
@@ -166,7 +166,7 @@ void handleSubsInfo(struct Server *srvConf, struct sockaddr_in *newAddress, stru
         sendUdp(newUDPSocket, createUDPPacket(INFO_ACK, srvConf->mac, rnd, tcpPort), newAddress);
         /* Save controller Data and set SUBSCRIBED status */
         pthread_mutex_lock(&mutex);
-            linfo("Controller: %s successfully subscribed. Set to [SUBSCRIBED].", true, controller->name);
+            linfo("Controller: %s [SUBSCRIBED].", true, controller->name);
             controller->data.tcp = atoi(tcp);
             inet_ntop(AF_INET, &(newAddress->sin_addr), controller->data.ip, INET_ADDRSTRLEN);
             strcpy(controller->data.rand, rnd);
