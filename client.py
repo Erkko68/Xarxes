@@ -534,6 +534,7 @@ def _init_():
     sock_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  
     # TCP
     sock_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock_tcp.bind((config.client['Server'], int(config.client['Local_TCP'])))
     sock_tcp.listen(1)
 
 def main():
