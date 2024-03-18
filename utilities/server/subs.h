@@ -4,7 +4,7 @@
  * 
  * 
  * @author Eric Bitria Ribes
- * @version 0.4
+ * @version 0.5
  * @date 2024-3-18
  */
 
@@ -23,9 +23,7 @@ Structure for subscription thread arguments
 struct subsThreadArgs {
     struct Server *srvConf;     
     struct Controller *controller;   
-    int *socket;                
-    char *situation; 
-    struct sockaddr_in *addr;          
+    int socket;                       
 };
 
 #include "../commons.h"
@@ -94,5 +92,18 @@ void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *control
  * @param addr The address of the controller
  */
 void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int udp_socket, struct Server *serv_conf, struct sockaddr_in *addr);
+
+
+/**
+ * @brief Thread Function to handle a UDP connection.
+ *
+ * This function processes a UDP packet received from a client.
+ * It checks the packet's contents and controller status to determine if it has to do SUBSCRIPTION Process or HELLO Communication.
+ * If the packet is allowed and the controller is in a valid state, it proceeds. Otherwise, it rejects the connection.
+ *
+ * @param udp_args Pointer to a struct subsThreadArgs containing thread arguments.
+ * @return NULL
+ */
+void* handleUDPConnection(void* udp_args);
 
 #endif /* SUBS_FUNCTIONS_H */

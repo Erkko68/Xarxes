@@ -90,7 +90,7 @@ def init_client(file_path):
                     value = int(value)
                     if not 0 <= int(value) <= 65535: logs.error(f"Invalid {key} Port, must be between 0 and 65535.",True)
                 elif key == 'Server':
-                    print()
+                    pass
                 else:
                     continue # Ignore any other configuration found
                 client[key] = value

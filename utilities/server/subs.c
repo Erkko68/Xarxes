@@ -3,8 +3,8 @@
  * @brief Functions for the Server Subscription Process.
  * 
  * @author Eric Bitria Ribes
- * @version 0.5
- * @date 2024-3-14
+ * @version 0.6
+ * @date 2024-3-18
  */
 
 #include "../commons.h"
@@ -32,7 +32,7 @@ void subsProcess(int *socket, struct sockaddr_in *addr, struct Controller *contr
     char rnd[9];
 
     /* Log start of the thread */
-    linfo("Starting new subscription process for controller: %s.", false, controller->mac);
+    linfo("Starting new subscription process for: %s.", false, controller->name);
 
     /* Generate random identifier */
     generateIdentifier(rnd);
@@ -51,10 +51,10 @@ void subsProcess(int *socket, struct sockaddr_in *addr, struct Controller *contr
 
     /* Wait for SUBS_INFO or timeout */
     if ((received = select(newUDPSocket + 1, &readfds, NULL, NULL, &timeout)) < 0) {
-        lerror("Error initializing select during subscription process thread by client: %s", true, srvConf->mac);
+        lerror("Error initializing select during subs process by: %s", true, srvConf->name);
     } else if (received == 0) {
         /* Handle timeout */
-        linfo("Controller %s hasn't sent SUBS_INFO in the last 2 seconds. Disconnecting...",false, controller->mac);
+        linfo("Controller %s hasn't sent [SUBS_INFO] in the last 2 seconds. Disconnecting...",false, controller->name);
         pthread_mutex_lock(&mutex);
             disconnectController(controller);
         pthread_mutex_unlock(&mutex);
@@ -129,7 +129,7 @@ void handleSubsAck(struct Controller *controller, struct Server *srvConf, struct
     );
     /* Update controller status to WAIT_INFO */
     pthread_mutex_lock(&mutex);
-        linfo("Sent [SUBS_ACK]. Controller %s set to WAIT_INFO status...",true,controller->mac);
+        linfo("Sent [SUBS_ACK]. Controller %s set to [WAIT_INFO]",true,controller->name);
         controller->data.status = WAIT_INFO;
     pthread_mutex_unlock(&mutex);
 }
@@ -166,7 +166,7 @@ void handleSubsInfo(struct Server *srvConf, struct sockaddr_in *newAddress, stru
         sendUdp(newUDPSocket, createUDPPacket(INFO_ACK, srvConf->mac, rnd, tcpPort), newAddress);
         /* Save controller Data and set SUBSCRIBED status */
         pthread_mutex_lock(&mutex);
-            linfo("Controller: %s successfully subscribed. Status set to SUBSCRIBED.", true, controller->mac);
+            linfo("Controller: %s successfully subscribed. Set to [SUBSCRIBED].", true, controller->name);
             controller->data.tcp = atoi(tcp);
             inet_ntop(AF_INET, &(newAddress->sin_addr), controller->data.ip, INET_ADDRSTRLEN);
             strcpy(controller->data.rand, rnd);
@@ -177,7 +177,7 @@ void handleSubsInfo(struct Server *srvConf, struct sockaddr_in *newAddress, stru
         pthread_mutex_unlock(&mutex);
     } else {
         /* Invalid SUBS_INFO packet, update status to DISCONNECTED */
-        linfo("Subscription process ended for Controller: %s. Reason: Wrong Info in SUBS_INFO packet. Disconnecting...", true, controller->mac);
+        linfo("Controller: %s [DISCONNECTED]. Reason: Wrong Info in SUBS_INFO packet.", true, controller->name);
         /*Send rejection packet*/
         sendUdp(newUDPSocket, 
                 createUDPPacket(SUBS_REJ, srvConf->mac, "00000000", "Subscription Denied: Wrong Info in SUBS_INFO packet."), 
@@ -210,12 +210,15 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
 
     /* Check if its SUBS_REJ */
     if(udp_packet.type == HELLO_REJ){
-        linfo("Controller %s has sent SUBS_REJ packet, DISCONNECTING controller....",true, controller->mac);
+        linfo("Received [SUBS_REJ] by %s, Disconnecting....",true, controller->name);
         disconnectController(controller);
         return;
     } else if (udp_packet.type != HELLO){
-        linfo("Controller %s sent invalid packet during HELLO, DISCONNECTING controller....",true, controller->mac);
-        disconnectController(controller);
+        linfo("Controller %s sent invalid packet during HELLO, Ignoring...",true, controller->name);
+        sendUdp(udp_socket,
+                createUDPPacket(HELLO_REJ, serv_conf->mac, controller->data.rand, ""),
+                addr
+        );
         return;
     }
     strcpy(dataCpy, udp_packet.data);
@@ -247,7 +250,7 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
                     addr
             );
             if(controller->data.status == SUBSCRIBED){
-                linfo("Controller %s set to SEND_HELLO status.",true, controller->mac);
+                linfo("Controller %s set to [SEND_HELLO] status.",true, controller->name);
                 controller->data.status = SEND_HELLO;
             }
 
@@ -257,7 +260,7 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
                     createUDPPacket(HELLO_REJ, serv_conf->mac, controller->data.rand, ""),
                     addr
             );
-            linfo("Controller %s has sent incorrect HELLO packets, DISCONNECTING controller....",true, controller->mac);
+            linfo("Controller %s has sent incorrect HELLO packets, Disconnecting....",true, controller->name);
             disconnectController(controller);
         }
     pthread_mutex_unlock(&mutex);
@@ -289,10 +292,63 @@ void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *control
 
     } else { 
         /* Reject Connection sending a [SUBS_REJ] packet */
-        linfo("Denied connection to Controller: %s. Reason: Wrong Situation or Code format.", false, udp_packet->mac);
+        linfo("Denied connection to: %s. Reason: Wrong Situation or Code format.", false, udp_packet->mac);
         sendUdp(udp_socket, 
                 createUDPPacket(SUBS_REJ, serv_conf->mac, "00000000", "Subscription Denied: Wrong Situation or Code format."), 
                 clienAddr
         );
     }
+}
+
+/**
+ * @brief Thread Function to handle a UDP connection.
+ *
+ * This function processes a UDP packet received from a client.
+ * It checks the packet's contents and controller status to determine if it has to do SUBSCRIPTION Process or HELLO Communication.
+ * If the packet is allowed and the controller is in a valid state, it proceeds. Otherwise, it rejects the connection.
+ *
+ * @param udp_args Pointer to a struct subsThreadArgs containing thread arguments.
+ * @return NULL
+ */
+void* handleUDPConnection(void* udp_args){
+    struct subsThreadArgs *args = (struct subsThreadArgs*)udp_args;
+    struct sockaddr_in clienAddr;
+    struct UDPPacket udp_packet;
+    /* Receive data and find the controller index, if it exists */
+    int controllerIndex = 0;
+    /*linfo("Received data in file descriptor UDP.", false);*/
+    udp_packet = recvUdp(args->socket, &clienAddr);
+
+    /*Checks if incoming packet has allowed name and mac adress*/
+    if ((controllerIndex = isUDPAllowed(udp_packet, args->controller)) != -1) {
+        
+        if ((args->controller[controllerIndex].data.status == DISCONNECTED)){
+            handleDisconnected(&udp_packet, &args->controller[controllerIndex], args->socket, args->srvConf, &clienAddr);
+
+        } else if (args->controller[controllerIndex].data.status == SUBSCRIBED || args->controller[controllerIndex].data.status == SEND_HELLO){
+            handleHello(udp_packet, &args->controller[controllerIndex], args->socket, args->srvConf, &clienAddr);
+
+        } else {
+            /* linfo("Denied connection to: %s. Reason: Invalid status.", false, udp_packet.mac); */
+            sendUdp(args->socket, 
+                createUDPPacket(SUBS_REJ, args->srvConf->mac, "00000000", "Subscription Denied: Invalid Status."), 
+                &clienAddr
+            );
+            pthread_mutex_lock(&mutex);
+                args->controller[controllerIndex].data.lastPacketTime = 0; /* Reset last packet time */
+            pthread_mutex_unlock(&mutex);
+        }
+
+    }else { /* Reject Connection sending a [SUBS_REJ] packet */
+        linfo("Denied connection: %s. Reason: Not listed in allowed Controllers file.", false, udp_packet.mac);
+        sendUdp(args->socket,
+                createUDPPacket(SUBS_REJ, args->srvConf->mac, "00000000", "Subscription Denied: You are not listed in allowed Controllers file."), 
+                &clienAddr
+        );
+        pthread_mutex_lock(&mutex);
+            args->controller[controllerIndex].data.lastPacketTime = 0; /* Reset last packet time */
+        pthread_mutex_unlock(&mutex);
+    }
+
+    return NULL;
 }

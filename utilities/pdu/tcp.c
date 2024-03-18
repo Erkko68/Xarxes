@@ -109,7 +109,7 @@ void sendTcp(const int socketFd, const struct TCPPacket packet) {
     tcpToBytes(&packet,data);
 
     if (send(socketFd, data, sizeof(data), 0) < 0) {
-        lerror("send failed", true);
+        lwarning("send failed", true);
     }
 }
 

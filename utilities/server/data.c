@@ -103,12 +103,16 @@ void *dataPetition(void *st){
     client_addr.sin_port = htons(args->controller->data.tcp);
 
     if (inet_pton(AF_INET, args->controller->data.ip, &client_addr.sin_addr) <= 0) {
-        lerror("Unexpected error when setting adress:",true);
+        lwarning("Unexpected error when setting adress:",true);
+        disconnectController(args->controller);
+        return NULL;
     }
 
     if (connect(dataSckt, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
         close(dataSckt);
-        lerror("Connection to controller %s failed", true,args->controller->mac);
+        lwarning("Connection to controller %s failed", true,args->controller->name);
+        disconnectController(args->controller);
+        return NULL;
     }
     /* Check if we want to send or get data */
     if( strcmp(args->value,"") == 0 ){
@@ -141,7 +145,7 @@ void *dataPetition(void *st){
                 } else {
                     /* Print fail messages */
                     sprintf(msg,"Couldn't store %s data %s.",dataPacket.device,result);
-                    lwarning("Couldn't store %s data from Controller: %s. Reason: %s", false,dataPacket.device,dataPacket.mac,result);
+                    lwarning("Couldn't store %s data from Controller: %s. Reason: %s", false,dataPacket.device,args->controller->name,result);
                     /* Send error packet */
                     sendTcp(dataSckt, createTCPPacket(DATA_NACK,args->controller->mac,args->controller->data.rand,dataPacket.device,dataPacket.value,msg));
                     /* Disconnect packet */

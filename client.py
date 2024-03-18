@@ -89,8 +89,10 @@ def subs_process() -> bool:
     - bool: True if subscription is successful, False otherwise.
     """
     global subs_attempts
+
     t = 1; u = 2; n = 7; o = 3; p = 3; q = 3
     wait = t
+
     if subs_attempts < o:
         subs_attempts += 1
         # Print subscription request msg
@@ -131,15 +133,14 @@ def subs_process() -> bool:
                 logs.info("Received SUBS_REJ")
                 config.set_status('NOT_SUBSCRIBED')
                 # Start new subscription process
-                subs_process()
-                break
+                return False
 
         else:  # If we don't receive response from the server, wait and continue new subscription request.
             time.sleep(u)
             # Set client status
             config.set_status('NOT_SUBSCRIBED')
             # Call new subs_process
-            subs_process()
+            return False
     else:
         config.set_status('DISCONNECTED')
         # If subscription attempts ended exit function
@@ -157,7 +158,7 @@ def subs_process() -> bool:
             config.set_status('SUBSCRIBED')
             return True
         config.set_status('NOT_SUBSCRIBED')
-        subs_process()
+        return False
 
 ##########################
 # Subscription Phase END #
@@ -196,6 +197,7 @@ def send_hello_rej(hello: pdu_udp.Packet) -> None:
     disconnected.set()
 
 def hello_recv_thread():
+    global subs_attempts
     """
     Thread function for receiving and processing HELLO packets.
     """
@@ -207,7 +209,9 @@ def hello_recv_thread():
         return
     elif check_hello(hello, addr):
         # Set status
+        subs_attempts = 0
         config.set_status('SEND_HELLO')
+        open_comm()
     else:
         send_hello_rej(hello)
         return
@@ -230,6 +234,7 @@ def hello_recv_thread():
         logs.info("Server hasn't sent 3 consecutive HELLO packets.",True)
         config.set_status('NOT_SUBSCRIBED')
         disconnected.set()
+        tcp_on.clear()
         return
 
     # If reached here controller received wrong HELLO packet data, sending HELLO_REJ
@@ -323,7 +328,9 @@ def get_data(packet: pdu_tcp.Packet, socket: socket.socket) -> None:
                             pdu_tcp.packet_type['DATA_ACK'],
                             config.client['MAC'],
                             config.client['Server_Config']['rnd'],
-                            packet.device,packet.val,""
+                            packet.device,
+                            str(packet.val),
+                            ""
                             )
                         )
                     )
@@ -379,11 +386,15 @@ def send_data(device: str) -> None:
     - None
     """
     # Create new TCP socket
+    try:
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Connect to the server
+        server_socket.connect((config.client['Server'], int(config.client['Server_Config']['TCP'])))
+    except Exception as e:
+        logs.error("An error has occurred while connecting to the server:")
 
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # Connect to the server
-    server_socket.connect((config.client['Server'], int(config.client['Server_Config']['TCP'])))
-    
+    logs.info(f"Open port {config.client['Server_Config']['TCP']} to send data.")
+
     # Send the packet
     pdu_tcp.send(server_socket,
         pdu_tcp.to_bytes(
@@ -391,7 +402,8 @@ def send_data(device: str) -> None:
                 pdu_tcp.packet_type['SEND_DATA'],
                 config.client['MAC'],
                 config.client['Server_Config']['rnd'],
-                device,config.client['Elements'][device],
+                device,
+                str(config.client['Elements'][device]),
                 ""
             )
         )
@@ -498,7 +510,8 @@ def selector(line: str) -> None:
     elif command == 'quit':
         disconnected.set()
         sock_udp.close()
-        sock_tcp.close()
+        if tcp_on.is_set():
+            sock_tcp.close()
         exit()
     else:
         print("Available commands:")
@@ -514,7 +527,7 @@ def selector(line: str) -> None:
 # Initialization function
 def _init_():
     # Create global variables for sockets
-    global sock_udp, sock_tcp
+    global sock_udp
 
     ## Get User Arguments
     parser = argparse.ArgumentParser(usage="client.py [-h] [-c client_config.cfg] [-d]")
@@ -531,33 +544,64 @@ def _init_():
 
     # Create sockets
     # UDP
-    sock_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  
-    # TCP
+    sock_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+def open_comm():
+    global sock_tcp
+
+    # Init socket
     sock_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock_tcp.bind((config.client['Server'], int(config.client['Local_TCP'])))
-    sock_tcp.listen(1)
+
+    # Call bind
+    try:
+        sock_tcp.bind((config.client['Server'], int(config.client['Local_TCP'])))
+    except OSError as e:
+        try:
+            sock_tcp.bind((config.client['Server'], 0))
+            _, local_tcp_port = sock_tcp.getsockname()
+            config.client['Local_TCP'] = str(local_tcp_port)
+        except OSError as e:
+            print(f"Failed to bind to any available port: {e}")
+            exit()
+    
+    # Call listen
+    try:
+        sock_tcp.listen(5)
+    except OSError as e:
+        logs.error(f"Failed to start listening for TCP connections: {e}")
+
+    logs.info(f"Opened TCP connection on port {config.client['Local_TCP']}")
+    # Set flag
+    tcp_on.set()
 
 def main():
     # Create global variables
+    global tcp_on
     global subs_attempts
     global disconnected
     disconnected = threading.Event()
+    tcp_on = threading.Event()
 
     # Init variables
     disconnected.set()
     subs_attempts = 0
 
+    config.set_status('NOT_SUBSCRIBED')
+    
     # Main loop
     try:
         while True:
-            # Set select
-            readable, _, _ = select.select([sock_tcp,sys.stdin], [], [], 1)
+                
+            if tcp_on.is_set():
+                readable, _, _ = select.select([sock_tcp,sys.stdin], [], [], 0.1)
+            else:
+                readable, _, _ = select.select([sys.stdin], [], [], 1)
 
             # Start subscription and periodic communication
             if disconnected.is_set() and subs_process():
                 hello_process = threading.Thread(target=hello_process_thread,daemon=True)
                 hello_process.start()
-            
+
             # Check file descriptors
             for sock_or_input in readable:
 
@@ -573,11 +617,18 @@ def main():
 
     except Exception as e:
         logs.error(f"An exception has ocurred: {e}",True)
+    except KeyboardInterrupt:
+        
+        disconnected.set()
+        sock_udp.close()
+        if tcp_on.is_set():
+            sock_tcp.close()
 
     finally:
         disconnected.set()
         sock_udp.close()
-        sock_tcp.close()
+        if tcp_on.is_set():
+            sock_tcp.close()
 
 # Program Call
 if __name__ == "__main__":
