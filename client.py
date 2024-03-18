@@ -319,7 +319,7 @@ def get_data(packet: pdu_tcp.Packet, socket: socket.socket) -> None:
     - None
     """
     if packet.device in config.client['Elements'].keys():
-        logs.info(f"Sent {packet.device} value: {packet.val}.")
+        logs.info(f"Sent {packet.device} value: {config.client['Elements'][packet.device]}.")
 
         pdu_tcp.send(socket,
                     pdu_tcp.to_bytes(
@@ -328,7 +328,7 @@ def get_data(packet: pdu_tcp.Packet, socket: socket.socket) -> None:
                             config.client['MAC'],
                             config.client['Server_Config']['rnd'],
                             packet.device,
-                            str(packet.val),
+                            str(config.client['Elements'][packet.device]),
                             ""
                             )
                         )
@@ -555,13 +555,8 @@ def open_comm():
     try:
         sock_tcp.bind((config.client['Server'], int(config.client['Local_TCP'])))
     except OSError as e:
-        try:
-            sock_tcp.bind((config.client['Server'], 0))
-            _, local_tcp_port = sock_tcp.getsockname()
-            config.client['Local_TCP'] = str(local_tcp_port)
-        except OSError as e:
-            print(f"Failed to bind to any available port: {e}")
-            exit()
+        print(f"Failed to bind to Local_TCP port: {e}")
+        exit()
     
     # Call listen
     try:

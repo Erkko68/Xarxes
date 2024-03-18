@@ -214,7 +214,6 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
         disconnectController(controller);
         return;
     } else if (udp_packet.type != HELLO){
-        linfo("Controller %s sent invalid packet during HELLO, Ignoring...",true, controller->name);
         sendUdp(udp_socket,
                 createUDPPacket(HELLO_REJ, serv_conf->mac, controller->data.rand, ""),
                 addr
