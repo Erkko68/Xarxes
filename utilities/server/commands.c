@@ -81,12 +81,12 @@ void printInfoOrSpaces(char* str, int width) {
  * information by printing spaces for empty strings.
  * 
  * @param controllers Pointer to an array of Controller structures.
- * @param numControllers The number of controllers in the array.
+ * @param maxControllers  The number of controllers in the array.
  */
-void printList(struct Controller *controllers) {
+void printList(struct Controller *controllers, int maxControllers) {
     int i, j;
     printf("--NOM--- ------IP------- -----MAC---- --RNDM-- ----ESTAT--- --SITUACIÓ-- --ELEMENTS-------------------------------------------\n");
-    for (i = 0; strcmp(controllers[i].name,"NULL") != 0; i++) {
+    for (i = 0; i < maxControllers; i++) {
         printf("%s ", controllers[i].name);
         printInfoOrSpaces(controllers[i].data.ip, sizeof(controllers[i].data.ip) - 1);
         printf("%s ", controllers[i].mac);
@@ -122,7 +122,7 @@ void commandDataPetition(char *controller, char *device, char *value, struct Con
     pthread_t dataThread;
     
     /* Check if the controller exists and is not disconnected */
-    if ((controllerNum = hasController(controller, controllers)) != -1 && controllers[controllerNum].data.status != DISCONNECTED) {
+    if ((controllerNum = hasController(controller, controllers,srvConf->numControllers)) != -1 && controllers[controllerNum].data.status != DISCONNECTED) {
         /* Check if the device exists */
         if ((deviceNum = hasDevice(device, &controllers[controllerNum])) != -1) {
             /* Allocate memory to hold the arguments for the independent thread */
@@ -139,7 +139,13 @@ void commandDataPetition(char *controller, char *device, char *value, struct Con
             /* Create a new thread to handle the data petition */
             if(pthread_create(&dataThread, NULL, dataPetition, (void *)args) < 0) {
                 lerror("Unexpected error while starting new TCP thread.", true);
+            } else {
+                /* Detach the thread after successful creation */
+                if (pthread_detach(dataThread) != 0) {
+                    lerror("Failed to detach TCP thread", true);
+                }
             }
+
         } else {
             lwarning("Device in controller %s not found", true, controllers[controllerNum].mac);
         }

@@ -58,6 +58,7 @@ void subsProcess(int socket, struct sockaddr_in *addr, struct Controller *contro
         pthread_mutex_lock(&mutex);
             disconnectController(controller);
         pthread_mutex_unlock(&mutex);
+
     } else {
         /* Handle [SUBS_INFO] */
         handleSubsInfo(srvConf, &newAddress, controller, rnd, situation, newUDPSocket);
@@ -166,13 +167,15 @@ void handleSubsInfo(struct Server *srvConf, struct sockaddr_in *newAddress, stru
         /* Create INFO_ACK packet */
         sendUdp(newUDPSocket, createUDPPacket(INFO_ACK, srvConf->mac, rnd, tcpPort), newAddress);
         /* Save controller Data and set SUBSCRIBED status */
+        linfo("Controller: %s [SUBSCRIBED].", true, controller->name);
         pthread_mutex_lock(&mutex);
-            linfo("Controller: %s [SUBSCRIBED].", true, controller->name);
             controller->data.tcp = atoi(tcp);
-            inet_ntop(AF_INET, &(newAddress->sin_addr), controller->data.ip, INET_ADDRSTRLEN);
-            strcpy(controller->data.rand, rnd);
-            strcpy(controller->data.situation, situation);
-            storeDevices(devices, controller->data.devices, ";");
+        pthread_mutex_unlock(&mutex);
+        inet_ntop(AF_INET, &(newAddress->sin_addr), controller->data.ip, INET_ADDRSTRLEN);
+        strcpy(controller->data.rand, rnd);
+        strcpy(controller->data.situation, situation);
+        storeDevices(devices, controller->data.devices, ";");
+        pthread_mutex_lock(&mutex);
             controller->data.status = SUBSCRIBED;
             controller->data.lastPacketTime = time(NULL);
         pthread_mutex_unlock(&mutex);
@@ -185,9 +188,7 @@ void handleSubsInfo(struct Server *srvConf, struct sockaddr_in *newAddress, stru
                 newAddress
         );
 
-        pthread_mutex_lock(&mutex);
-            disconnectController(controller);
-        pthread_mutex_unlock(&mutex);
+        disconnectController(controller);
     }
 }
 
@@ -230,40 +231,40 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
         printf("Expe: %s,%s,%s\n",controller->data.situation,controller->mac,controller->data.rand);
         printf("Sent: %s,%s,%s\n",situation,udp_packet.mac,udp_packet.rnd);
     */
-    pthread_mutex_lock(&mutex);
-        /* Check correct packet data */
-        if(situation != NULL && (strcmp(situation, controller->data.situation) == 0) && 
-        (strcmp(udp_packet.mac, controller->mac) == 0) && 
-        (strcmp(udp_packet.rnd, controller->data.rand) == 0)){
-            char data[80];
+    /* Check correct packet data */
+    if(situation != NULL && (strcmp(situation, controller->data.situation) == 0) && 
+    (strcmp(udp_packet.mac, controller->mac) == 0) && 
+    (strcmp(udp_packet.rnd, controller->data.rand) == 0)){
+        char data[80];
+        pthread_mutex_lock(&mutex);
             /* Reset last packet time stamp */
             controller->data.lastPacketTime = time(NULL);
+        pthread_mutex_unlock(&mutex);
 
-            /* Get data */
-            strcpy(data, controller->name);
-            strcat(data, ",");
-            strcat(data, controller->data.situation);
+        /* Get data */
+        strcpy(data, controller->name);
+        strcat(data, ",");
+        strcat(data, controller->data.situation);
 
-            /* Send HELLO back */
-            sendUdp(udp_socket,
-                    createUDPPacket(HELLO, serv_conf->mac, controller->data.rand, data),
-                    addr
-            );
-            if(controller->data.status == SUBSCRIBED){
-                linfo("Controller %s set to [SEND_HELLO] status.",true, controller->name);
-                controller->data.status = SEND_HELLO;
-            }
-
-        } else {
-            /* Send HELLO_REJ */
-            sendUdp(udp_socket,
-                    createUDPPacket(HELLO_REJ, serv_conf->mac, controller->data.rand, ""),
-                    addr
-            );
-            linfo("Controller %s has sent incorrect HELLO packets, Disconnecting....",true, controller->name);
-            disconnectController(controller);
+        /* Send HELLO back */
+        sendUdp(udp_socket,
+                createUDPPacket(HELLO, serv_conf->mac, controller->data.rand, data),
+                addr
+        );
+        if(controller->data.status == SUBSCRIBED){
+            linfo("Controller %s set to [SEND_HELLO] status.",true, controller->name);
+            controller->data.status = SEND_HELLO;
         }
-    pthread_mutex_unlock(&mutex);
+
+    } else {
+        /* Send HELLO_REJ */
+        sendUdp(udp_socket,
+                createUDPPacket(HELLO_REJ, serv_conf->mac, controller->data.rand, ""),
+                addr
+        );
+        linfo("Controller %s has sent incorrect HELLO packets, Disconnecting....",true, controller->name);
+        disconnectController(controller);
+    }
 }
 
 
@@ -320,7 +321,7 @@ void* handleUDPConnection(void* udp_args){
     udp_packet = recvUdp(args->socket, &clienAddr);
 
     /*Checks if incoming packet has allowed name and mac adress*/
-    if ((controllerIndex = isUDPAllowed(udp_packet, args->controller)) != -1) {
+    if ((controllerIndex = isUDPAllowed(udp_packet, args->controller, args->srvConf->numControllers)) != -1) {
         
         if ((args->controller[controllerIndex].data.status == DISCONNECTED)){
             handleDisconnected(&udp_packet, &args->controller[controllerIndex], args->socket, args->srvConf, &clienAddr);
@@ -334,9 +335,7 @@ void* handleUDPConnection(void* udp_args){
                 createUDPPacket(SUBS_REJ, args->srvConf->mac, "00000000", "Subscription Denied: Invalid Status."), 
                 &clienAddr
             );
-            pthread_mutex_lock(&mutex);
-                args->controller[controllerIndex].data.lastPacketTime = 0; /* Reset last packet time */
-            pthread_mutex_unlock(&mutex);
+            args->controller[controllerIndex].data.lastPacketTime = 0; /* Reset last packet time */
         }
 
     }else { /* Reject Connection sending a [SUBS_REJ] packet */

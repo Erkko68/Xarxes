@@ -72,7 +72,6 @@ void quit(int signum) {
 int main(int argc, char *argv[]) {
     /*Struct for server configuration*/
     struct Server serv_conf;
-    int numControllers;
     int i;
     /*Initialise file descriptors select*/
     fd_set readfds;
@@ -117,11 +116,11 @@ int main(int argc, char *argv[]) {
 
     /* Load allowed controllers in memory */
     linfo("Loading controllers...",false);
-        numControllers = loadControllers(&controllers, controllers_file);
-        if(numControllers==0){
+        serv_conf.numControllers = loadControllers(&controllers, controllers_file);
+        if(serv_conf.numControllers==0){
             lerror("0 controllers loaded. Exiting...",true);
         } else {
-            linfo("%d controllers loaded. Waiting for incoming connections...",true,numControllers);
+            linfo("%d controllers loaded. Waiting for incoming connections...",true,serv_conf.numControllers);
         }
 
     /*Initialise mutex (Locks and unlocks)*/
@@ -161,19 +160,22 @@ int main(int argc, char *argv[]) {
 
             if(pthread_create(&udpThread, NULL, handleUDPConnection, (void *)&udp_args) < 0){
                 lerror("Unexpected error while starting new TCP thread",true);
+            } else {
+                /* Detach the thread after successful creation */
+                if (pthread_detach(udpThread) != 0) {
+                    lerror("Failed to detach TCP thread", true);
+                }
             }
         }
 
         /*Update controllers packet timers*/
-        for (i = 0; i < numControllers; i++) {
+        for (i = 0; i < serv_conf.numControllers; i++) {
             if (controllers[i].data.lastPacketTime != 0) {
                 time_t current_time = time(NULL);
                 /* Check if 6 seconds have passed since the last packet */
                 if (current_time - controllers[i].data.lastPacketTime > 6) {
-                    pthread_mutex_lock(&mutex);
-                        linfo("Controller %s hasn't sent 3 consecutive packets. DISCONNECTING...",false,controllers[i].name);
-                        disconnectController(&controllers[i]);
-                    pthread_mutex_unlock(&mutex);
+                    linfo("Controller %s hasn't sent 3 consecutive packets. DISCONNECTING...",false,controllers[i].name);
+                    disconnectController(&controllers[i]);
                 }
             }
         }
@@ -204,6 +206,11 @@ int main(int argc, char *argv[]) {
 
             if(pthread_create(&tcpThread, NULL, dataReception, (void *)&threadArgs) < 0){
                 lerror("Unexpected error while starting new TCP thread",true);
+            } else {
+                /* Detach the thread after successful creation */
+                if (pthread_detach(tcpThread) != 0) {
+                    lerror("Failed to detach TCP thread", true);
+                }
             }
         }
 
@@ -223,7 +230,7 @@ int main(int argc, char *argv[]) {
             args = sscanf(commandLine, "%4s %8s %7s %6s", command, controller, device, value);
 
             if (strcmp(command, "list") == 0 && args == 1) {
-                printList(controllers);
+                printList(controllers,serv_conf.numControllers);
             } else if (strcmp(command, "set") == 0 && args == 4) {
                 if (strlen(controller) > 8) {
                     lwarning("Controller name exceeds maximum length. (8)", true);

@@ -23,6 +23,7 @@ Define struct for server config
 - struct sockaddr_in udp_address;
 */
 struct Server{
+    int numControllers;
     char name[9];
     char mac[13];
     unsigned short tcp; /*Range 0-65535*/

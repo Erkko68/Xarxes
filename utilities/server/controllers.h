@@ -18,7 +18,7 @@ struct ControllerInfo{
     unsigned char status;
     char situation[13];
     char rand[9];
-    char devices[11][8];
+    char devices[10][8];
     unsigned short tcp; /*Range 0-65535*/
     unsigned short udp; /*Range 0-65535*/
     char ip[INET_ADDRSTRLEN];
@@ -68,9 +68,10 @@ int loadControllers(struct Controller **controllers, const char *filename);
  * 
  * @param packet The packet struct to check.
  * @param controllers Pointer to the array of Controller structs containing allowed controllers.
+ * @param maxControllers The number of controllers
  * @return Returns 1 if the controller is allowed, 0 otherwise.
  */
-int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers);
+int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers, int maxControllers);
 
 
 /**
@@ -78,9 +79,10 @@ int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers);
  * 
  * @param packet The TCPPacket struct representing the TCP packet to check.
  * @param controllers Pointer to the array of Controller structs containing allowed controllers.
+ *  @param maxControllers The number of controllers
  * @return Returns the index of the allowed controller if found, otherwise returns -1.
  */
-int isTCPAllowed(const struct TCPPacket* packet, struct Controller *controllers);
+int isTCPAllowed(const struct TCPPacket* packet, struct Controller *controllers, int maxControllers);
 /**
  * @brief Tokenizes and stores an string into diferent devices names.
  * 
@@ -104,9 +106,10 @@ int hasDevice(const char *device, const struct Controller *controller);
  * 
  * @param name The name of the controller to search for.
  * @param controllers Pointer to the array of controllers.
+ * @param maxControllers The number of controllers
  * @return int The index of the controller if found, otherwise -1.
  */
-int hasController(char *name,struct Controller *controllers);
+int hasController(char *name,struct Controller *controllers, int maxControllers);
 
 /**
  * @brief Disconnects a controller and sets its status to DISCONNECTED.

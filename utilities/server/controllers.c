@@ -4,8 +4,8 @@
  * 
  * 
  * @author Eric Bitria Ribes
- * @version 0.3
- * @date 2024-3-14
+ * @version 0.4
+ * @date 2024-3-19
  */
 
 #include "../commons.h"
@@ -16,6 +16,16 @@ typedef struct {
     char mac[13];
 } ctrl;
 
+/**
+ * @brief Reads a line from a file pointer and extracts controller information.
+ * 
+ * This function reads a line from the specified file pointer 'file' and parses it 
+ * to extract controller information, Name,MAC.
+ * It returns a structure of type 'ctrl' containing the extracted name and MAC address.
+ * 
+ * @param file Pointer to the file to read from.
+ * @return Returns a 'ctrl' structure containing the extracted name and MAC address.
+ */
 ctrl getNextLine(FILE* file) {
     char line[25];
     ctrl result;
@@ -36,12 +46,23 @@ ctrl getNextLine(FILE* file) {
     return result;
 }
 
+/**
+ * @brief Initializes the controller information structure.
+ * 
+ * This function initializes a 'ControllerInfo' structure pointed to by 'info'.
+ * It sets the status to 'DISCONNECTED', empties the 'situation' and 'rand' strings,
+ * and initializes each element of the 'devices' array to an empty string.
+ * It sets 'tcp' and 'udp' to zero, and empties the 'ip' string.
+ * Finally, it sets 'lastPacketTime' to zero.
+ * 
+ * @param info Pointer to the 'ControllerInfo' structure to initialize.
+ */
 void initializeControllerInfo(struct ControllerInfo *info) {
     int i;
     info->status = DISCONNECTED;
     info->situation[0] = '\0';
     info->rand[0] = '\0';
-    for (i = 0; i < 11; i++) {
+    for (i = 0; i < 10; i++) {
         info->devices[i][0] = '\0';
     }
     info->tcp = 0;
@@ -50,6 +71,20 @@ void initializeControllerInfo(struct ControllerInfo *info) {
     info->lastPacketTime = 0;
 }
 
+/**
+ * @brief Adds a new controller to an array of controllers.
+ * 
+ * This function adds a new controller to the array of controllers.
+ * It dynamically reallocates memory for the 'controllers' array to accommodate the new controller.
+ * It copies the provided 'name' and 'mac' into the newly added controller's struct.
+ * It initializes the controller's data using 'initializeControllerInfo'.
+ * 
+ * @param controllers Pointer to the array of controllers.
+ * @param numControllers Pointer to the number of controllers.
+ * @param name The name of the new controller.
+ * @param mac The MAC address of the new controller.
+ * @return Returns the updated array of controllers.
+ */
 struct Controller* addController(struct Controller *controllers, int *numControllers, const char *name, const char *mac) {
     (*numControllers)++;
     
@@ -63,8 +98,6 @@ struct Controller* addController(struct Controller *controllers, int *numControl
     strncpy(controllers[*numControllers - 1].mac, mac, 12);
     controllers[*numControllers - 1].mac[12] = '\0';
     initializeControllerInfo(&controllers[*numControllers - 1].data);
-
-    printf("%s,%s\n",controllers[*numControllers-1].name,controllers[*numControllers-1].mac);
 
     return controllers;
 }
@@ -95,9 +128,6 @@ int loadControllers(struct Controller **controllers, const char *filename) {
         *controllers = addController(*controllers,&numControllers,controller.name,controller.mac);
     }
 
-    *controllers = addController(*controllers,&numControllers,"NULL","NULL");
-    numControllers--;
-
     fclose(file);
 
     return numControllers;
@@ -118,33 +148,29 @@ int loadControllers(struct Controller **controllers, const char *filename) {
  * @param controllers Pointer to the array of Controller structs containing allowed controllers.
  * @return Returns 1 if the controller is allowed, 0 otherwise.
  */
-int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers) {
+int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers, int maxControlers) {
     int i;
     /* Make a copy of packet data*/
     char data_copy[80];
     char* name;
-    pthread_mutex_lock(&mutex);
 
-        strcpy(data_copy, packet.data);
-        /*Tokenize copied data*/
-        
-        name = strtok(data_copy, ",");
-        if(name == NULL) {
-            pthread_mutex_unlock(&mutex);
-            return -1;
+    strcpy(data_copy, packet.data);
+    /*Tokenize copied data*/
+    
+    name = strtok(data_copy, ",");
+    if(name == NULL) {
+        return -1;
+    }
+
+    /*Iterate over allowed controllers*/
+    for (i = 0; i < maxControlers; i++) {
+        if (strcmp(packet.mac, controllers[i].mac) == 0 && 
+            strcmp(name, controllers[i].name) == 0) {
+            /*Return index*/
+            return i;
         }
+    }
 
-        /*Iterate over allowed controllers*/
-        for (i = 0; strcmp(controllers[i].name,"NULL") != 0; i++) {
-            if (strcmp(packet.mac, controllers[i].mac) == 0 && 
-                strcmp(name, controllers[i].name) == 0) {
-                /*Return index*/
-                pthread_mutex_unlock(&mutex);
-                return i;
-            }
-        }
-
-    pthread_mutex_unlock(&mutex);
 
     return -1;
 }
@@ -158,13 +184,14 @@ int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers) 
  * 
  * @param packet The TCPPacket struct representing the TCP packet to check.
  * @param controllers Pointer to the array of Controller structs containing allowed controllers.
+ * @param maxControllers The number of controllers
  * @return Returns the index of the allowed controller if found, otherwise returns -1.
  */
-int isTCPAllowed(const struct TCPPacket* packet, struct Controller *controllers) {
+int isTCPAllowed(const struct TCPPacket* packet, struct Controller *controllers, int maxControllers) {
     int i;
         
     /*Iterate over allowed controllers*/
-    for (i = 0; strcmp(controllers[i].name,"NULL") != 0 ; i++) {
+    for (i = 0; i < maxControllers ; i++) {
         if (strcmp(packet->mac, controllers[i].mac) == 0 ) {
             /*Return index*/
             return i;
@@ -207,11 +234,12 @@ void storeDevices(char *devices, char deviceArray[][8], char *delimiter) {
  * 
  * @param name The name of the controller to search for.
  * @param controllers Pointer to the array of controllers.
+ * @param maxControllers The number of controllers
  * @return int The index of the controller if found, otherwise -1.
  */
-int hasController(char *name,struct Controller *controllers){
+int hasController(char *name,struct Controller *controllers, int maxControllers){
     int i;
-    for (i = 0; strcmp(controllers[i].name,"NULL"); i++) {
+    for (i = 0; i < maxControllers; i++) {
         if (strcmp(name, controllers[i].name) == 0) {
             /*Return index*/
             return i;
@@ -234,7 +262,7 @@ int hasController(char *name,struct Controller *controllers){
 int hasDevice(const char *device, const struct Controller *controller) {
     int i;
     
-    for (i = 0; strcmp(controller->data.devices[i],"NULL") != 0; i++) {
+    for (i = 0; i < 10; i++) {
         if (strcmp(device, controller->data.devices[i]) == 0) {
             
             return i;
@@ -252,8 +280,8 @@ int hasDevice(const char *device, const struct Controller *controller) {
  * @param controller Pointer to the controller struct to disconnect.
  */
 void disconnectController(struct Controller *controller) {
-
-    controller->data.status = DISCONNECTED;
-    controller->data.lastPacketTime = 0;
-
+    pthread_mutex_lock(&mutex);
+        controller->data.status = DISCONNECTED;
+        controller->data.lastPacketTime = 0;
+    pthread_mutex_unlock(&mutex);
 }

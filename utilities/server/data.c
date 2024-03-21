@@ -203,17 +203,18 @@ void* dataReception(void* args){
     if (tcp_packet == NULL) {
         lwarning("Haven't received data trough TCP socket in 3 seconds. Clossing socket...",false);
         close(dataArgs->client_socket);
+        free(tcp_packet);
         return NULL;
     }
     /*Check its SEND_DATA*/
     if(tcp_packet->type != SEND_DATA){
         lwarning("Received unexpected packet by controller %s. Expected [SEND_DATA].",false,tcp_packet->mac);
         close(dataArgs->client_socket);
+        free(tcp_packet);
         return NULL;
     }
-    pthread_mutex_lock(&mutex);
     /*Check allowed controller*/
-    if((controllerIndex = isTCPAllowed(tcp_packet, dataArgs->controllers)) != -1){ 
+    if((controllerIndex = isTCPAllowed(tcp_packet, dataArgs->controllers,dataArgs->servConf->numControllers)) != -1){ 
         if (strncmp(tcp_packet->rnd, dataArgs->controllers[controllerIndex].data.rand,8) == 0){ /* Check Identificator */
             /*Check correct status*/
             if(dataArgs->controllers[controllerIndex].data.status == SEND_HELLO){
@@ -253,8 +254,6 @@ void* dataReception(void* args){
         lwarning("Denied connection to Controller: %s. Reason: Not listed in allowed Controllers file.", false, tcp_packet->mac);
         packetType = DATA_REJ;
     }
-
-    pthread_mutex_unlock(&mutex);
 
     /* 
     Send response with packet type, the mac of the server, the identificator 

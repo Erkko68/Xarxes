@@ -27,11 +27,15 @@ const char* getStatusName(enum Status status);
 
 /**
  * @brief Prints the information of the given controllers.
+ *
+ * This function prints the information of the given controllers, including name, IP address,
+ * MAC address, random data, status, situation, and devices. It ensures proper alignment of
+ * information by printing spaces for empty strings.
  * 
  * @param controllers Pointer to an array of Controller structures.
- * @param numControllers The number of controllers in the array.
+ * @param maxControllers  The number of controllers in the array.
  */
-void printList(struct Controller *controllers);
+void printList(struct Controller *controllers, int maxControllers);
 
 
 /**
