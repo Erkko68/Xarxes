@@ -10,6 +10,64 @@
 
 #include "../commons.h"
 
+/* Only used to read the controllers */
+typedef struct {
+    char name[9];
+    char mac[13];
+} ctrl;
+
+ctrl getNextLine(FILE* file) {
+    char line[25];
+    ctrl result;
+
+    if (fgets(line, 25, file) != NULL) {
+        char *token = strtok(line, ",");
+        if (token != NULL) {
+            strncpy(result.name, token, 8);
+            result.name[8] = '\0';
+            token = strtok(NULL, ",");
+            if (token != NULL) {
+                strncpy(result.mac, token, 12);
+                result.mac[12] = '\0';
+            }
+        }
+    }
+
+    return result;
+}
+
+void initializeControllerInfo(struct ControllerInfo *info) {
+    int i;
+    info->status = '\0';
+    info->situation[0] = '\0';
+    info->rand[0] = '\0';
+    for (i = 0; i < 11; i++) {
+        info->devices[i][0] = '\0';
+    }
+    info->tcp = 0;
+    info->udp = 0;
+    info->ip[0] = '\0';
+    info->lastPacketTime = 0;
+}
+
+struct Controller* addController(struct Controller *controllers, int *numControllers, const char *name, const char *mac) {
+    (*numControllers)++;
+    
+    controllers = realloc(controllers, (*numControllers) * sizeof(struct Controller));
+    if (controllers == NULL) {
+        fprintf(stderr, "Memory reallocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    strncpy(controllers[*numControllers - 1].name, name, 8);
+    controllers[*numControllers - 1].name[8 - 1] = '\0';
+    strncpy(controllers[*numControllers - 1].mac, mac, 12);
+    controllers[*numControllers - 1].mac[12 - 1] = '\0';
+    initializeControllerInfo(&controllers[*numControllers - 1].data);
+
+    return controllers;
+}
+
 /**
  * @brief Reads controller data from a file and dynamically allocates memory for each controller struct.
  *
@@ -24,53 +82,23 @@
  */
 int loadControllers(struct Controller **controllers, const char *filename) {
     int numControllers = 0;
-    char line[25]; 
-
+    ctrl controller;
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
         lerror("Could not open filedescriptor while reading controllers.", true);
+        return -1;
     }
 
-    while (fgets(line, sizeof(line), file) != NULL) {
-        char name[9];
-        char mac[13];
-        char device[] = "NULL";
-        if (sscanf(line, "%9[^,],%13s", name, mac) == 2) {
-            /* Dynamically reallocate memory for additional controllers */
-            *controllers = (struct Controller*) realloc(*controllers, (numControllers + 1) * sizeof(struct Controller));
-            if (*controllers == NULL) {
-                fclose(file);
-                lerror("Failed memory allocation while reading controllers.", true);
-            }
-            /* Copy name and mac to the new controller */
-            strncpy((*controllers)[numControllers].name, name, sizeof((*controllers)[numControllers].name));
-            strncpy((*controllers)[numControllers].mac, mac, sizeof((*controllers)[numControllers].mac));
-            /* Set to zeros any other value */
-            memset(&((*controllers)[numControllers].data), '\0', sizeof((*controllers)[numControllers].data));
-
-            strncpy((*controllers)[numControllers].data.devices[0], device, sizeof((*controllers)[numControllers].data.devices[0]));
-            /* Set disconnected status */
-            (*controllers)[numControllers].data.status = DISCONNECTED;
-            /* Increase number of controllers */
-            numControllers++;
-        } else {
-            lwarning("Wrong controller format in line: %d. Correct format (CTRL-XXX,YYYYYYYYYYY)", true, numControllers+1);
-        }
+    while (!feof(file)) {
+        controller = getNextLine(file);
+        addController(*controllers,&numControllers,controller.name,controller.mac);
     }
 
     fclose(file);
 
-    /* Allocate a last struct with the name field set to "NULL" */
-    *controllers = (struct Controller*) realloc(*controllers, (numControllers + 1) * sizeof(struct Controller));
-    if (*controllers == NULL) {
-        lerror("Failed memory allocation for the last controller.", true);
-    }
-    strncpy((*controllers)[numControllers].name, "NULL", sizeof((*controllers)[numControllers].name));
-    strncpy((*controllers)[numControllers].mac, "NULL", sizeof((*controllers)[numControllers].mac));
-    memset(&((*controllers)[numControllers].data), '\0', sizeof((*controllers)[numControllers].data));
-
     return numControllers;
 }
+
 
 
 /**

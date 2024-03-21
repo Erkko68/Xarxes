@@ -154,10 +154,10 @@ struct TCPPacket* recvTcp(const int socketFd){
     val = recv(socketFd, buffer, PDUTCP,0);
     if ( val == 0) {
         lwarning("Host disconnected.",false);
-        return createTCPPacket(0xF,"","","","","");
+        return NULL;
     } else if ( val < 0 ) {
         if (errno == EAGAIN || errno == EWOULDBLOCK){
-            return createTCPPacket(0xF,"","","","","");
+            return NULL;
         } else {
             lerror("TCP recv failed", true);
         }

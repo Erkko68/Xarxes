@@ -57,6 +57,7 @@ const char* save(struct TCPPacket *packet, struct Controller *controller) {
 
     /* Open file or create one */
     if ((file = fopen(filename, "a")) == NULL) {
+        fclose(file);
         return strerror(errno);
     }
 
@@ -65,6 +66,7 @@ const char* save(struct TCPPacket *packet, struct Controller *controller) {
 
     /* Write data to file */
     if (fprintf(file, "%s,%s,%s,%s,%s\n", date_str, get_current_time(), getTCPName(packet->type), packet->device, packet->value) < 0) {
+        fclose(file);
         return strerror(errno);
     }
 
@@ -193,17 +195,16 @@ void* dataReception(void* args){
     struct TCPPacket* tcp_packet;
 
     int controllerIndex;
-    unsigned char packetType;
+    unsigned char packetType = 0;
     char msg[80];
 
     /*Get Packet*/
     tcp_packet = recvTcp(dataArgs->client_socket);
-    if(tcp_packet->type == 0xF){
+    if (tcp_packet == NULL) {
         lwarning("Haven't received data trough TCP socket in 3 seconds. Clossing socket...",false);
         close(dataArgs->client_socket);
         return NULL;
     }
-
     /*Check its SEND_DATA*/
     if(tcp_packet->type != SEND_DATA){
         lwarning("Received unexpected packet by controller %s. Expected [SEND_DATA].",false,tcp_packet->mac);
@@ -213,7 +214,7 @@ void* dataReception(void* args){
     pthread_mutex_lock(&mutex);
     /*Check allowed controller*/
     if((controllerIndex = isTCPAllowed(tcp_packet, dataArgs->controllers)) != -1){ 
-        if (strcmp(tcp_packet->rnd, dataArgs->controllers[controllerIndex].data.rand) == 0){ /* Check Identificator */
+        if (strncmp(tcp_packet->rnd, dataArgs->controllers[controllerIndex].data.rand,8) == 0){ /* Check Identificator */
             /*Check correct status*/
             if(dataArgs->controllers[controllerIndex].data.status == SEND_HELLO){
                 /*Check if controller has device*/
