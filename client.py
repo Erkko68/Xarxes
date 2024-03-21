@@ -130,7 +130,7 @@ def subs_process() -> bool:
                 continue
 
             elif subs_ack.packet_type == pdu_udp.packet_type['SUBS_REJ']:
-                logs.info("Received SUBS_REJ")
+                logs.warning("Received SUBS_REJ")
                 config.set_status('NOT_SUBSCRIBED')
                 # Start new subscription process
                 return False
@@ -149,6 +149,11 @@ def subs_process() -> bool:
     # WAIT_ACK_INFO process
     if config.client['status'] == config.status['WAIT_ACK_INFO']:
         info_ack, address = pdu_udp.recvUDP(sock_udp)
+        if info_ack == None:
+            config.set_status('NOT_SUBSCRIBED')
+            logs.warning("Server didn't send INFO_ACK packet.")
+            # Call new subs_process
+            return False
         # Check server information
         if (info_ack.packet_type == pdu_udp.packet_type['INFO_ACK'] and
             info_ack.mac == config.client['Server_Config']['MAC'] and 
@@ -191,7 +196,7 @@ def send_hello_rej(hello: pdu_udp.Packet) -> None:
     - hello (pdu_udp.Packet): The incorrectly formatted HELLO packet.
     """
     hello.packet_type = pdu_udp.packet_type['HELLO_REJ']
-    logs.info("Received wrong HELLO packet data.")
+    logs.warning("Received wrong HELLO packet data.")
     config.set_status('NOT_SUBSCRIBED')
     pdu_udp.send(sock_udp, pdu_udp.to_bytes(hello), config.client['Server_Config']['IP'], int(config.client['Srv_UDP']))
     disconnected.set()
@@ -205,6 +210,11 @@ def hello_recv_thread():
     sock_udp.settimeout(4)
     hello, addr = pdu_udp.recvUDP(sock_udp)
     if hello is None:
+        logs.warning("Server hasn't sent first HELLO packet.")
+        disconnected.set()
+        return
+    elif hello.packet_type == pdu_udp.packet_type['HELLO_REJ']:
+        logs.warning("Received HELLO_REJ.")
         disconnected.set()
         return
     elif check_hello(hello, addr):
@@ -231,7 +241,7 @@ def hello_recv_thread():
                 break
     else:   
         # If reached here lost connection with server, stopping reception thread
-        logs.info("Server hasn't sent 3 consecutive HELLO packets.",True)
+        logs.warning("Server hasn't sent 3 consecutive HELLO packets.")
         config.set_status('NOT_SUBSCRIBED')
         disconnected.set()
         tcp_on.clear()
@@ -244,8 +254,6 @@ def hello_process_thread():
     """
     Thread function for sending periodic HELLO packets.
     """
-    # Clear flag
-    disconnected.clear()
     # Start reception thread
     recv_hello = threading.Thread(target=hello_recv_thread,daemon=True)
     recv_hello.start()
@@ -419,6 +427,13 @@ def send_data(device: str) -> None:
         
         logs.warning("Received wrong server credentials in send packet response.")
         config.set_status('NOT_SUBSCRIBED')
+        server_socket.close()
+        disconnected.set()
+    
+    elif (response.device != device or response.val != str(config.client['Elements'][device])):
+        logs.warning("Received wrong device name or value in send packet response.")
+        config.set_status('NOT_SUBSCRIBED')
+        server_socket.close()
         disconnected.set()
     
     elif response.ptype == pdu_tcp.packet_type['DATA_ACK']:
@@ -430,11 +445,13 @@ def send_data(device: str) -> None:
     elif response.ptype == pdu_tcp.packet_type['DATA_REJ']:
         logs.warning("Server rejected data. Disconnecting...")
         config.set_status('NOT_SUBSCRIBED')
+        server_socket.close()
         disconnected.set()
 
     else:
         logs.warning("Received unexpected data during send validation. Disconnecting")
         config.set_status('NOT_SUBSCRIBED')
+        server_socket.close()
         disconnected.set()
 
     server_socket.close()
@@ -548,15 +565,20 @@ def _init_():
 def open_comm():
     global sock_tcp
 
+    try:
+        sock_tcp.close()
+    except:
+        pass
+
     # Init socket
     sock_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     # Call bind
+    
     try:
         sock_tcp.bind((config.client['Server'], int(config.client['Local_TCP'])))
     except OSError as e:
-        print(f"Failed to bind to Local_TCP port: {e}")
-        exit()
+        logs.error(f"Failed to bind to Local_TCP port: {e}")
     
     # Call listen
     try:
@@ -593,6 +615,7 @@ def main():
 
             # Start subscription and periodic communication
             if disconnected.is_set() and subs_process():
+                disconnected.clear()
                 hello_process = threading.Thread(target=hello_process_thread,daemon=True)
                 hello_process.start()
 

@@ -66,7 +66,7 @@ enum TCPType{
  * 
  * @return Returns a TCPPacket structure initialized with the provided information.
  */
-struct TCPPacket createTCPPacket(const unsigned char type, const char *mac, const char *rnd, const char *device, const char *value, const char *data);
+struct TCPPacket* createTCPPacket(const unsigned char type, const char *mac, const char *rnd, const char *device, const char *value, const char *data);
 
 /**
  * @brief Converts a TCPPacket struct to a byte array.
@@ -74,7 +74,7 @@ struct TCPPacket createTCPPacket(const unsigned char type, const char *mac, cons
  * @param packet Pointer to the TCPPacket struct to be converted.
  * @param bytes Pointer to the byte array where the TCPPacket struct will be converted.
  */
-void tcpToBytes(const struct TCPPacket *packet, char *bytes);
+void tcpToBytes(struct TCPPacket *packet, char *bytes);
 
 /**
  * @brief Converts a byte array to a TCPPacket struct.
@@ -84,7 +84,7 @@ void tcpToBytes(const struct TCPPacket *packet, char *bytes);
  * @return Returns a TCPPacket struct with the data decoded from the byte array.
  */
 
-struct TCPPacket bytesToTcp(const char *bytes);
+struct TCPPacket* bytesToTcp(const char *bytes);
 
 /**
  * @brief Sends a TCP packet over the specified socket.
@@ -92,7 +92,7 @@ struct TCPPacket bytesToTcp(const char *bytes);
  * @param socketFd The file descriptor of the socket to send data over.
  * @param packet The TCPPacket struct containing the data to send.
  */
-void sendTcp(const int socketFd, const struct TCPPacket packet);
+void sendTcp(const int socketFd, struct TCPPacket* packet);
 
 /**
  * @brief Receives a TCP packet from a socket and converts it to a TCPPacket struct.
@@ -101,7 +101,7 @@ void sendTcp(const int socketFd, const struct TCPPacket packet);
  * 
  * @return Returns a TCPPacket struct with the data decoded from the received byte array.
  */
-struct TCPPacket recvTcp(const int socketFd);
+struct TCPPacket* recvTcp(const int socketFd);
 
 /* Debug */
 void printTCPPacket(struct TCPPacket packet);

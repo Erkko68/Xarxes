@@ -88,7 +88,7 @@ void *dataPetition(void *st){
     int dataSckt;
     unsigned char packetType;
     struct sockaddr_in client_addr;
-    struct TCPPacket dataPacket;
+    struct TCPPacket* dataPacket;
     struct timeval tcpTimeout;
     /* Packet msg */
     const char *result;
@@ -136,18 +136,18 @@ void *dataPetition(void *st){
     dataPacket = recvTcp(dataSckt);
     
     pthread_mutex_lock(&mutex);
-        switch (dataPacket.type) {
+        switch (dataPacket->type) {
             case DATA_ACK:
 
                 linfo("Received confirmation for device %s. Storing data...",true,args->device);
-                if ((result = save(&dataPacket,args->controller)) == NULL){
-                    linfo("Controller %s updated %s. Value: %s", false, dataPacket.mac,dataPacket.device,dataPacket.value);
+                if ((result = save(dataPacket,args->controller)) == NULL){
+                    linfo("Controller %s updated %s. Value: %s", false, dataPacket->mac,dataPacket->device,dataPacket->value);
                 } else {
                     /* Print fail messages */
-                    sprintf(msg,"Couldn't store %s data %s.",dataPacket.device,result);
-                    lwarning("Couldn't store %s data from Controller: %s. Reason: %s", false,dataPacket.device,args->controller->name,result);
+                    sprintf(msg,"Couldn't store %s data %s.",dataPacket->device,result);
+                    lwarning("Couldn't store %s data from Controller: %s. Reason: %s", false,dataPacket->device,args->controller->name,result);
                     /* Send error packet */
-                    sendTcp(dataSckt, createTCPPacket(DATA_NACK,args->controller->mac,args->controller->data.rand,dataPacket.device,dataPacket.value,msg));
+                    sendTcp(dataSckt, createTCPPacket(DATA_NACK,args->controller->mac,args->controller->data.rand,dataPacket->device,dataPacket->value,msg));
                     /* Disconnect packet */
                     disconnectController(args->controller);
                 }
@@ -155,7 +155,7 @@ void *dataPetition(void *st){
 
             case DATA_NACK:
 
-                lwarning("Couldn't set device info: %s",true,dataPacket.data);
+                lwarning("Couldn't set device info: %s",true,dataPacket->data);
                 break;
 
             case DATA_REJ:
@@ -190,7 +190,7 @@ void *dataPetition(void *st){
  */
 void* dataReception(void* args){
     struct dataThreadArgs *dataArgs = (struct dataThreadArgs*)args;
-    struct TCPPacket tcp_packet;
+    struct TCPPacket* tcp_packet;
 
     int controllerIndex;
     unsigned char packetType;
@@ -198,69 +198,67 @@ void* dataReception(void* args){
 
     /*Get Packet*/
     tcp_packet = recvTcp(dataArgs->client_socket);
-    if(tcp_packet.type == 0xF){
+    if(tcp_packet->type == 0xF){
         lwarning("Haven't received data trough TCP socket in 3 seconds. Clossing socket...",false);
         close(dataArgs->client_socket);
         return NULL;
     }
 
     /*Check its SEND_DATA*/
-    if(tcp_packet.type != SEND_DATA){
-        lwarning("Received unexpected packet by controller %s. Expected [SEND_DATA].",false,tcp_packet.mac);
+    if(tcp_packet->type != SEND_DATA){
+        lwarning("Received unexpected packet by controller %s. Expected [SEND_DATA].",false,tcp_packet->mac);
         close(dataArgs->client_socket);
         return NULL;
     }
-    pthread_mutex_lock(&mutex);
-        /*Check allowed controller*/
-        if((controllerIndex = isTCPAllowed(tcp_packet, dataArgs->controllers)) != -1){ 
-            /*Check correct status*/
-            if(dataArgs->controllers[controllerIndex].data.status == SEND_HELLO){
-                /*Check if controller has device*/
-                if(hasDevice(tcp_packet.device,&dataArgs->controllers[controllerIndex]) != -1){
-                    const char *result;
-                    /*Check error msg*/
-        /*---->*/    if ((result = save(&tcp_packet,&dataArgs->controllers[controllerIndex])) == NULL){
-                        linfo("Controller %s updated %s. Value: %s", false, tcp_packet.mac,tcp_packet.device,tcp_packet.value);
-                        packetType = DATA_ACK;
-                    } else {
-                        sprintf(msg,"Couldn't store %s data %s.",tcp_packet.device,result);
-                        lwarning("Couldn't store %s data from Controller: %s. Reason: %s", false,tcp_packet.device,tcp_packet.mac,result);
-                        packetType = DATA_NACK;
-                        disconnectController(&dataArgs->controllers[controllerIndex]);
-                    }
+    
+    /*Check allowed controller*/
+    if((controllerIndex = isTCPAllowed(tcp_packet, dataArgs->controllers)) != -1){ 
+        /*Check correct status*/
+        if(dataArgs->controllers[controllerIndex].data.status == SEND_HELLO){
+            /*Check if controller has device*/
+            if(hasDevice(tcp_packet->device,&dataArgs->controllers[controllerIndex]) != -1){
+                const char *result;
+                /*Check error msg*/
+    /*---->*/    if ((result = save(tcp_packet,&dataArgs->controllers[controllerIndex])) == NULL){
+                    linfo("Controller %s updated %s. Value: %s", false, tcp_packet->mac,tcp_packet->device,tcp_packet->value);
+                    packetType = DATA_ACK;
                 } else {
-                    sprintf(msg,"Controller doesn't have %s device.",tcp_packet.device);
-                    linfo("Denied connection to Controller: %s. Reason: Controller doesn't have %s device.", false, tcp_packet.mac,tcp_packet.device);
+                    sprintf(msg,"Couldn't store %s data %s.",tcp_packet->device,result);
+                    lwarning("Couldn't store %s data from Controller: %s. Reason: %s", false,tcp_packet->device,tcp_packet->mac,result);
                     packetType = DATA_NACK;
                     disconnectController(&dataArgs->controllers[controllerIndex]);
                 }
             } else {
-                sprintf(msg,"Controller is not in SEND_HELLO status.");
-                linfo("Denied connection to Controller: %s. Reason: Controller is not in SEND_HELLO status.", false, tcp_packet.mac);
-                packetType = DATA_REJ;
+                sprintf(msg,"Controller doesn't have %s device.",tcp_packet->device);
+                linfo("Denied connection to Controller: %s. Reason: Controller doesn't have %s device.", false, tcp_packet->mac,tcp_packet->device);
+                packetType = DATA_NACK;
                 disconnectController(&dataArgs->controllers[controllerIndex]);
             }
         } else {
-            sprintf(msg,"Not listed in allowed Controllers file.");
-            linfo("Denied connection to Controller: %s. Reason: Not listed in allowed Controllers file.", false, tcp_packet.mac);
+            sprintf(msg,"Controller is not in SEND_HELLO status.");
+            linfo("Denied connection to Controller: %s. Reason: Controller is not in SEND_HELLO status.", false, tcp_packet->mac);
             packetType = DATA_REJ;
             disconnectController(&dataArgs->controllers[controllerIndex]);
         }
+    } else {
+        sprintf(msg,"Not listed in allowed Controllers file.");
+        linfo("Denied connection to Controller: %s. Reason: Wrong credentials.", false, tcp_packet->mac);
+        packetType = DATA_REJ;
+        dataArgs->controllers[controllerIndex].data.status = DISCONNECTED;
+    }
 
-        /* Send response */
-        sendTcp(dataArgs->client_socket, 
-                createTCPPacket(packetType,
-                                dataArgs->servConf->mac,
-                                dataArgs->controllers[controllerIndex].data.rand,
-                                tcp_packet.device,
-                                tcp_packet.value,
-                                msg
-                                )
-                );
-        /*Close comunication*/
-        close(dataArgs->client_socket);
-
-    pthread_mutex_unlock(&mutex);
+    /* Send response */
+    sendTcp(dataArgs->client_socket, 
+            createTCPPacket(packetType,
+                            dataArgs->servConf->mac,
+                            dataArgs->controllers[controllerIndex].data.rand,
+                            tcp_packet->device,
+                            tcp_packet->value,
+                            msg
+                            )
+            );
+    /*Close comunication*/
+    close(dataArgs->client_socket);
 
     return NULL;
 }

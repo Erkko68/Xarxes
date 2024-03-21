@@ -23,7 +23,7 @@
  * @param situation Pointer to the situation information.
  * @param srvConf Pointer to the server configuration struct.
  */
-void subsProcess(int *socket, struct sockaddr_in *addr, struct Controller *controller,  char *situation, struct Server *srvConf) {
+void subsProcess(int socket, struct sockaddr_in *addr, struct Controller *controller,  char *situation, struct Server *srvConf) {
     struct timeval timeout;
     struct sockaddr_in newAddress;
     int newUDPSocket;
@@ -118,7 +118,7 @@ int setupUDPSocket(struct sockaddr_in *newAddress) {
  */
 void handleSubsAck(struct Controller *controller, struct Server *srvConf, struct sockaddr_in *newAddress, struct sockaddr_in *addr, int udpSocket, char *rnd) {
     char newPort[6];
-    
+
     /*Get new Port*/
     sprintf(newPort, "%d", ntohs(newAddress->sin_port));
 
@@ -133,6 +133,7 @@ void handleSubsAck(struct Controller *controller, struct Server *srvConf, struct
         controller->data.status = WAIT_INFO;
     pthread_mutex_unlock(&mutex);
 }
+
 
 
 /* Function to handle SUBS_INFO
@@ -222,7 +223,7 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
     }
     strcpy(dataCpy, udp_packet.data);
 
-    strtok(dataCpy, ","); /* Ignore first name */
+    strtok(dataCpy, ","); /* Ignore first name (Since it was checked at isUDPAllowed) */
     situation = strtok(NULL, ",");
 
     /* DEBUG
@@ -231,7 +232,7 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
     */
     pthread_mutex_lock(&mutex);
         /* Check correct packet data */
-        if((strcmp(situation, controller->data.situation) == 0) && 
+        if(situation != NULL && (strcmp(situation, controller->data.situation) == 0) && 
         (strcmp(udp_packet.mac, controller->mac) == 0) && 
         (strcmp(udp_packet.rnd, controller->data.rand) == 0)){
             char data[80];
@@ -286,8 +287,8 @@ void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *control
     situation = strtok(NULL, ",");
 
     /* Check if packet has correct identifier and situation */
-    if((strcmp(udp_packet->rnd, "00000000") == 0) && (strcmp(situation, "000000000000") != 0)) {
-        subsProcess(&udp_socket,clienAddr,controller,situation,serv_conf);
+    if (situation != NULL && (strlen(udp_packet->rnd) == 8) && (strlen(situation) == 12)) {
+        subsProcess(udp_socket, clienAddr, controller, situation, serv_conf);
 
     } else { 
         /* Reject Connection sending a [SUBS_REJ] packet */

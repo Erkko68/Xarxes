@@ -31,14 +31,23 @@
  * 
  * @return Returns a TCPPacket structure initialized with the provided information.
  */
-struct TCPPacket createTCPPacket(const unsigned char type, const char *mac, const char *rnd, const char *device, const char *value, const char *data){
-    struct TCPPacket packet;
-        packet.type = type;
-        strcpy(packet.mac,mac);
-        strcpy(packet.rnd,rnd);
-        strcpy(packet.device,device);
-        strcpy(packet.value,value);
-        strcpy(packet.data,data);
+struct TCPPacket* createTCPPacket(const unsigned char type, const char *mac, const char *rnd, const char *device, const char *value, const char *data){
+    struct TCPPacket* packet = malloc(sizeof(struct TCPPacket));
+    if (packet == NULL) {
+        return NULL;
+    }
+    packet->type = type;
+    strncpy(packet->mac, mac, sizeof(packet->mac) - 1);
+    packet->mac[sizeof(packet->mac) - 1] = '\0';
+    strncpy(packet->rnd, rnd, sizeof(packet->rnd) - 1);
+    packet->rnd[sizeof(packet->rnd) - 1] = '\0';
+    strncpy(packet->device, device, sizeof(packet->device) - 1);
+    packet->device[sizeof(packet->device) - 1] = '\0';
+    strncpy(packet->value, value, sizeof(packet->value) - 1);
+    packet->value[sizeof(packet->value) - 1] = '\0';
+    strncpy(packet->data, data, sizeof(packet->data) - 1);
+    packet->data[sizeof(packet->data) - 1] = '\0';
+
     return packet;
 }
 
@@ -48,7 +57,7 @@ struct TCPPacket createTCPPacket(const unsigned char type, const char *mac, cons
  * @param packet Pointer to the TCPPacket struct to be converted.
  * @param bytes Pointer to the byte array where the TCPPacket struct will be converted.
  */
-void tcpToBytes(const struct TCPPacket *packet, char *bytes){
+void tcpToBytes(struct TCPPacket *packet, char *bytes){
     int offset = 0;
     bytes[offset] = packet->type;
     offset += sizeof(packet->type);
@@ -76,20 +85,23 @@ void tcpToBytes(const struct TCPPacket *packet, char *bytes){
  * 
  * @return Returns a TCPPacket struct with the data decoded from the byte array.
  */
-struct TCPPacket bytesToTcp(const char *bytes) {
-    struct TCPPacket packet;
+struct TCPPacket* bytesToTcp(const char *bytes) {
     int offset = 0;
-    packet.type = bytes[offset];
-    offset += sizeof(packet.type);
-    memcpy(packet.mac, bytes + offset, sizeof(packet.mac));
-    offset += sizeof(packet.mac);
-    memcpy(packet.rnd, bytes + offset, sizeof(packet.rnd));
-    offset += sizeof(packet.rnd);
-    memcpy(packet.device, bytes + offset, sizeof(packet.device));
-    offset += sizeof(packet.device);
-    memcpy(packet.value, bytes + offset, sizeof(packet.value));
-    offset += sizeof(packet.value);
-    memcpy(packet.data, bytes + offset, sizeof(packet.data));
+    struct TCPPacket* packet = malloc(sizeof(struct TCPPacket));
+    if (packet == NULL) {
+        return NULL;
+    }
+    packet->type = bytes[offset];
+    offset += sizeof(packet->type);
+    memcpy(packet->mac, bytes + offset, sizeof(packet->mac));
+    offset += sizeof(packet->mac);
+    memcpy(packet->rnd, bytes + offset, sizeof(packet->rnd));
+    offset += sizeof(packet->rnd);
+    memcpy(packet->device, bytes + offset, sizeof(packet->device));
+    offset += sizeof(packet->device);
+    memcpy(packet->value, bytes + offset, sizeof(packet->value));
+    offset += sizeof(packet->value);
+    memcpy(packet->data, bytes + offset, sizeof(packet->data));
     return packet;
 }
 
@@ -104,13 +116,21 @@ struct TCPPacket bytesToTcp(const char *bytes) {
  * @param socketFd The file descriptor of the socket to send data over.
  * @param packet The TCPPacket struct containing the data to send.
  */
-void sendTcp(const int socketFd, const struct TCPPacket packet) {
+void sendTcp(const int socketFd, struct TCPPacket* packet) {
     char data[PDUTCP];
-    tcpToBytes(&packet,data);
+
+    if (packet == NULL) {
+        lerror("Error: NULL packet provided to sendUdp", true);
+        return;
+    }
+
+    tcpToBytes(packet,data);
 
     if (send(socketFd, data, sizeof(data), 0) < 0) {
         lwarning("send failed", true);
     }
+
+    free(packet);
 }
 
 /**
@@ -126,7 +146,7 @@ void sendTcp(const int socketFd, const struct TCPPacket packet) {
  * 
  * @return Returns a TCPPacket struct with the data decoded from the received byte array.
  */
-struct TCPPacket recvTcp(const int socketFd){
+struct TCPPacket* recvTcp(const int socketFd){
     int val;
     char buffer[PDUTCP]; /* Init buffer */
 

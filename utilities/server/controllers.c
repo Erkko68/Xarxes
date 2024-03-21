@@ -45,7 +45,7 @@ int loadControllers(struct Controller **controllers, const char *filename) {
             strncpy((*controllers)[numControllers].name, name, sizeof((*controllers)[numControllers].name));
             strncpy((*controllers)[numControllers].mac, mac, sizeof((*controllers)[numControllers].mac));
             /* Set to zeros any other value */
-            memset(&((*controllers)[numControllers].data), 0, sizeof((*controllers)[numControllers].data));
+            memset(&((*controllers)[numControllers].data), '\0', sizeof((*controllers)[numControllers].data));
 
             strncpy((*controllers)[numControllers].data.devices[0], device, sizeof((*controllers)[numControllers].data.devices[0]));
             /* Set disconnected status */
@@ -65,8 +65,8 @@ int loadControllers(struct Controller **controllers, const char *filename) {
         lerror("Failed memory allocation for the last controller.", true);
     }
     strncpy((*controllers)[numControllers].name, "NULL", sizeof((*controllers)[numControllers].name));
-    memset(&((*controllers)[numControllers].mac), 0, sizeof((*controllers)[numControllers].mac));
-    memset(&((*controllers)[numControllers].data), 0, sizeof((*controllers)[numControllers].data));
+    memset(&((*controllers)[numControllers].mac), '\0', sizeof((*controllers)[numControllers].mac));
+    memset(&((*controllers)[numControllers].data), '\0', sizeof((*controllers)[numControllers].data));
 
     return numControllers;
 }
@@ -88,10 +88,15 @@ int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers) 
     int i;
     /* Make a copy of packet data*/
     char data_copy[80];
-    char* name;    
+    char* name;
+
     strcpy(data_copy, packet.data);
     /*Tokenize copied data*/
+    
     name = strtok(data_copy, ",");
+    if(name == NULL) {
+        return -1;
+    }
 
     /*Iterate over allowed controllers*/
     for (i = 0; strcmp(controllers[i].name,"NULL") != 0; i++) {
@@ -101,6 +106,7 @@ int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers) 
             return i;
         }
     }
+
     return -1;
 }
 /**
@@ -115,16 +121,22 @@ int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers) 
  * @param controllers Pointer to the array of Controller structs containing allowed controllers.
  * @return Returns the index of the allowed controller if found, otherwise returns -1.
  */
-int isTCPAllowed(const struct TCPPacket packet, struct Controller *controllers) {
+int isTCPAllowed(const struct TCPPacket* packet, struct Controller *controllers) {
     int i;
-    /*Iterate over allowed controllers*/
-    for (i = 0; strcmp(controllers[i].name,"NULL"); i++) {
-        if (strcmp(packet.mac, controllers[i].mac) == 0 && 
-            strcmp(packet.rnd, controllers[i].data.rand) == 0) {
-            /*Return index*/
-            return i;
+    pthread_mutex_lock(&mutex);
+        
+        /*Iterate over allowed controllers*/
+        for (i = 0; strcmp(controllers[i].name,"NULL") != 0 ; i++) {
+            if (strcmp(packet->mac, controllers[i].mac) == 0 && 
+                strcmp(packet->rnd, controllers[i].data.rand) == 0) {
+
+                pthread_mutex_unlock(&mutex);
+                /*Return index*/
+                return i;
+            }
         }
-    }
+
+    pthread_mutex_unlock(&mutex);
     return -1;
 }
 
@@ -187,11 +199,14 @@ int hasController(char *name,struct Controller *controllers){
  */
 int hasDevice(const char *device, const struct Controller *controller) {
     int i;
+    
     for (i = 0; strcmp(controller->data.devices[i],"NULL") != 0; i++) {
         if (strcmp(device, controller->data.devices[i]) == 0) {
+            
             return i;
         }
     }
+
     return -1;
 }
 
@@ -203,13 +218,8 @@ int hasDevice(const char *device, const struct Controller *controller) {
  * @param controller Pointer to the controller struct to disconnect.
  */
 void disconnectController(struct Controller *controller) {
-    memset(controller->data.situation, 0, sizeof(controller->data.situation));
-    memset(controller->data.rand, 0, sizeof(controller->data.rand));
-    memset(controller->data.devices, 0, sizeof(controller->data.devices));
-    memset(controller->data.ip, 0, sizeof(controller->data.ip));
-    strcpy(controller->data.devices[0],"NULL");
-    controller->data.tcp = 0;
-    controller->data.udp = 0;
-    controller->data.lastPacketTime = 0;
+
     controller->data.status = DISCONNECTED;
+    controller->data.lastPacketTime = 0;
+
 }

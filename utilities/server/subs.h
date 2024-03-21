@@ -31,14 +31,14 @@ struct subsThreadArgs {
 /**
  * @brief Function to handle subscription process.
  *
- * @param socket Pointer to the UDP socket for communication with the controller.
+ * @param socket The UDP socket for communication with the controller.
  * @param addr Pointer to the socket address structure containing controller's address.
  * @param controller Pointer to the struct containing controller information.
  * @param situation Pointer to the situation information.
  * @param srvConf Pointer to the server configuration struct.
  * @return NULL
  */
-void subsProcess(int *socket, struct sockaddr_in *addr, struct Controller *controller,  char *situation, struct Server *srvConf);
+void subsProcess(int socket, struct sockaddr_in *addr, struct Controller *controller,  char *situation, struct Server *srvConf);
 
 /**
  * @brief Function to set up a new UDP socket and bind to a random port

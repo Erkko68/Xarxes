@@ -29,14 +29,22 @@
  * 
  * @return Returns a UDPPacket structure initialized with the provided information.
  */
-struct UDPPacket createUDPPacket(const unsigned char type, const char *mac, const char *rnd, const char *data){
-    struct UDPPacket packet;
-        packet.type = type;
-        strcpy(packet.mac,mac);
-        strcpy(packet.rnd,rnd);
-        strcpy(packet.data,data);
+struct UDPPacket* createUDPPacket(const unsigned char type, const char *mac, const char *rnd, const char *data) {
+    struct UDPPacket* packet = malloc(sizeof(struct UDPPacket));
+    if (packet == NULL) {
+        return NULL;
+    }
+    packet->type = type;
+    strncpy(packet->mac, mac, sizeof(packet->mac) - 1);
+    packet->mac[sizeof(packet->mac) - 1] = '\0';
+    strncpy(packet->rnd, rnd, sizeof(packet->rnd) - 1);
+    packet->rnd[sizeof(packet->rnd) - 1] = '\0';
+    strncpy(packet->data, data, sizeof(packet->data) - 1);
+    packet->data[sizeof(packet->data) - 1] = '\0';
+
     return packet;
 }
+
 
 /**
  * @brief Converts a UDPPacket struct to a byte array.
@@ -97,15 +105,24 @@ struct UDPPacket bytesToUdp(const char *bytes) {
  * @param packet The UDPPacket structure containing the data to be sent.
  * @param address Pointer to a sockaddr_in struct representing the destination address.
  */
-void sendUdp(const int socketFd, const struct UDPPacket packet, const struct sockaddr_in *address) {
+void sendUdp(const int socketFd, struct UDPPacket* packet, const struct sockaddr_in *address) {
     char data[PDUUDP];
     socklen_t address_len = sizeof(struct sockaddr_in);
-    udpToBytes(&packet,data);
+
+    if (packet == NULL) {
+        lerror("Error: NULL packet provided to sendUdp", true);
+        return;
+    }
+
+    udpToBytes(packet, data);
 
     if (sendto(socketFd, data, sizeof(data), 0, (struct sockaddr *) address, address_len) < 0) {
         lerror("Sendto failed", true);
     }
+
+    free(packet);
 }
+
 
 /**
  * @brief Receives a UDP packet from a specified socket.

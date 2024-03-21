@@ -80,7 +80,7 @@ int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers);
  * @param controllers Pointer to the array of Controller structs containing allowed controllers.
  * @return Returns the index of the allowed controller if found, otherwise returns -1.
  */
-int isTCPAllowed(const struct TCPPacket packet, struct Controller *controllers);
+int isTCPAllowed(const struct TCPPacket* packet, struct Controller *controllers);
 /**
  * @brief Tokenizes and stores an string into diferent devices names.
  * 

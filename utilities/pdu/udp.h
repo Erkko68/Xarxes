@@ -62,7 +62,7 @@ enum UDPType{
  * 
  * @return Returns a UDPPacket structure initialized with the provided information.
  */
-struct UDPPacket createUDPPacket(const unsigned char type, const char *mac, const char *rnd, const char *data);
+struct UDPPacket* createUDPPacket(const unsigned char type, const char *mac, const char *rnd, const char *data);
 
 /**
  * @brief Converts a UDPPacket struct to a byte array.
@@ -93,7 +93,7 @@ struct UDPPacket bytesToUdp(const char *bytes);
  * @param packet The UDPPacket structure containing the data to be sent.
  * @param address Pointer to a sockaddr_in struct representing the destination address.
  */
-void sendUdp(const int socketFd, const struct UDPPacket packet, const struct sockaddr_in *address);
+void sendUdp(const int socketFd, struct UDPPacket *packet, const struct sockaddr_in *address);
 
 /**
  * @brief Receives a UDP packet from a specified socket.
