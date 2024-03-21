@@ -210,48 +210,60 @@ void* dataReception(void* args){
         close(dataArgs->client_socket);
         return NULL;
     }
-    
+    pthread_mutex_lock(&mutex);
     /*Check allowed controller*/
     if((controllerIndex = isTCPAllowed(tcp_packet, dataArgs->controllers)) != -1){ 
-        /*Check correct status*/
-        if(dataArgs->controllers[controllerIndex].data.status == SEND_HELLO){
-            /*Check if controller has device*/
-            if(hasDevice(tcp_packet->device,&dataArgs->controllers[controllerIndex]) != -1){
-                const char *result;
-                /*Check error msg*/
-    /*---->*/    if ((result = save(tcp_packet,&dataArgs->controllers[controllerIndex])) == NULL){
-                    linfo("Controller %s updated %s. Value: %s", false, tcp_packet->mac,tcp_packet->device,tcp_packet->value);
-                    packetType = DATA_ACK;
+        if (strcmp(tcp_packet->rnd, dataArgs->controllers[controllerIndex].data.rand) == 0){ /* Check Identificator */
+            /*Check correct status*/
+            if(dataArgs->controllers[controllerIndex].data.status == SEND_HELLO){
+                /*Check if controller has device*/
+                if(hasDevice(tcp_packet->device,&dataArgs->controllers[controllerIndex]) != -1){
+                    const char *result;
+                    /*Check error msg*/
+        /*---->*/    if ((result = save(tcp_packet,&dataArgs->controllers[controllerIndex])) == NULL){
+                        linfo("Controller %s updated %s. Value: %s", false, tcp_packet->mac,tcp_packet->device,tcp_packet->value);
+                        packetType = DATA_ACK;
+                    } else {
+                        sprintf(msg,"Couldn't store %s data %s.",tcp_packet->device,result);
+                        lwarning("Couldn't store %s data from Controller: %s. Reason: %s", false,tcp_packet->device,tcp_packet->mac,result);
+                        packetType = DATA_NACK;
+                        disconnectController(&dataArgs->controllers[controllerIndex]);
+                    }
                 } else {
-                    sprintf(msg,"Couldn't store %s data %s.",tcp_packet->device,result);
-                    lwarning("Couldn't store %s data from Controller: %s. Reason: %s", false,tcp_packet->device,tcp_packet->mac,result);
+                    sprintf(msg,"Controller doesn't have %s device.",tcp_packet->device);
+                    lwarning("Denied connection to Controller: %s. Reason: Controller doesn't have %s device.", false, tcp_packet->mac,tcp_packet->device);
                     packetType = DATA_NACK;
                     disconnectController(&dataArgs->controllers[controllerIndex]);
                 }
             } else {
-                sprintf(msg,"Controller doesn't have %s device.",tcp_packet->device);
-                linfo("Denied connection to Controller: %s. Reason: Controller doesn't have %s device.", false, tcp_packet->mac,tcp_packet->device);
-                packetType = DATA_NACK;
+                sprintf(msg,"Controller is not in SEND_HELLO status.");
+                lwarning("Denied connection to Controller: %s. Reason: Controller is not in SEND_HELLO status.", false, tcp_packet->mac);
+                packetType = DATA_REJ;
                 disconnectController(&dataArgs->controllers[controllerIndex]);
             }
         } else {
-            sprintf(msg,"Controller is not in SEND_HELLO status.");
-            linfo("Denied connection to Controller: %s. Reason: Controller is not in SEND_HELLO status.", false, tcp_packet->mac);
+            sprintf(msg,"Wrong Identification.");
+            lwarning("Denied connection to Controller: %s. Reason: Wrong Identification.", false, tcp_packet->mac);
             packetType = DATA_REJ;
-            disconnectController(&dataArgs->controllers[controllerIndex]);
         }
+
     } else {
         sprintf(msg,"Not listed in allowed Controllers file.");
-        linfo("Denied connection to Controller: %s. Reason: Wrong credentials.", false, tcp_packet->mac);
+        lwarning("Denied connection to Controller: %s. Reason: Not listed in allowed Controllers file.", false, tcp_packet->mac);
         packetType = DATA_REJ;
-        dataArgs->controllers[controllerIndex].data.status = DISCONNECTED;
     }
 
-    /* Send response */
+    pthread_mutex_unlock(&mutex);
+
+    /* 
+    Send response with packet type, the mac of the server, the identificator 
+    (The one received from the packet in case its incorrect), the updated 
+    device and its value and finally a msg describing the operation made.
+    */
     sendTcp(dataArgs->client_socket, 
             createTCPPacket(packetType,
                             dataArgs->servConf->mac,
-                            dataArgs->controllers[controllerIndex].data.rand,
+                            tcp_packet->rnd,
                             tcp_packet->device,
                             tcp_packet->value,
                             msg

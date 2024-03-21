@@ -30,7 +30,7 @@ int loadControllers(struct Controller **controllers, const char *filename) {
     if (file == NULL) {
         lerror("Could not open filedescriptor while reading controllers.", true);
     }
- 
+
     while (fgets(line, sizeof(line), file) != NULL) {
         char name[9];
         char mac[13];
@@ -39,6 +39,7 @@ int loadControllers(struct Controller **controllers, const char *filename) {
             /* Dynamically reallocate memory for additional controllers */
             *controllers = (struct Controller*) realloc(*controllers, (numControllers + 1) * sizeof(struct Controller));
             if (*controllers == NULL) {
+                fclose(file);
                 lerror("Failed memory allocation while reading controllers.", true);
             }
             /* Copy name and mac to the new controller */
@@ -65,11 +66,12 @@ int loadControllers(struct Controller **controllers, const char *filename) {
         lerror("Failed memory allocation for the last controller.", true);
     }
     strncpy((*controllers)[numControllers].name, "NULL", sizeof((*controllers)[numControllers].name));
-    memset(&((*controllers)[numControllers].mac), '\0', sizeof((*controllers)[numControllers].mac));
+    strncpy((*controllers)[numControllers].mac, "NULL", sizeof((*controllers)[numControllers].mac));
     memset(&((*controllers)[numControllers].data), '\0', sizeof((*controllers)[numControllers].data));
 
     return numControllers;
 }
+
 
 /**
  * @brief Checks if a controller is allowed.
@@ -89,23 +91,28 @@ int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers) 
     /* Make a copy of packet data*/
     char data_copy[80];
     char* name;
+    pthread_mutex_lock(&mutex);
 
-    strcpy(data_copy, packet.data);
-    /*Tokenize copied data*/
-    
-    name = strtok(data_copy, ",");
-    if(name == NULL) {
-        return -1;
-    }
-
-    /*Iterate over allowed controllers*/
-    for (i = 0; strcmp(controllers[i].name,"NULL") != 0; i++) {
-        if (strcmp(packet.mac, controllers[i].mac) == 0 && 
-            strcmp(name, controllers[i].name) == 0) {
-            /*Return index*/
-            return i;
+        strcpy(data_copy, packet.data);
+        /*Tokenize copied data*/
+        
+        name = strtok(data_copy, ",");
+        if(name == NULL) {
+            pthread_mutex_unlock(&mutex);
+            return -1;
         }
-    }
+
+        /*Iterate over allowed controllers*/
+        for (i = 0; strcmp(controllers[i].name,"NULL") != 0; i++) {
+            if (strcmp(packet.mac, controllers[i].mac) == 0 && 
+                strcmp(name, controllers[i].name) == 0) {
+                /*Return index*/
+                pthread_mutex_unlock(&mutex);
+                return i;
+            }
+        }
+
+    pthread_mutex_unlock(&mutex);
 
     return -1;
 }
@@ -123,20 +130,15 @@ int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers) 
  */
 int isTCPAllowed(const struct TCPPacket* packet, struct Controller *controllers) {
     int i;
-    pthread_mutex_lock(&mutex);
         
-        /*Iterate over allowed controllers*/
-        for (i = 0; strcmp(controllers[i].name,"NULL") != 0 ; i++) {
-            if (strcmp(packet->mac, controllers[i].mac) == 0 && 
-                strcmp(packet->rnd, controllers[i].data.rand) == 0) {
-
-                pthread_mutex_unlock(&mutex);
-                /*Return index*/
-                return i;
-            }
+    /*Iterate over allowed controllers*/
+    for (i = 0; strcmp(controllers[i].name,"NULL") != 0 ; i++) {
+        if (strcmp(packet->mac, controllers[i].mac) == 0 ) {
+            /*Return index*/
+            return i;
         }
+    }
 
-    pthread_mutex_unlock(&mutex);
     return -1;
 }
 
