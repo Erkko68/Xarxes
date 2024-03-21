@@ -150,18 +150,19 @@ int main(int argc, char *argv[]) {
         }
         
         /* Check if UDP file descriptor has received data */
+        
         if (FD_ISSET(udp_socket, &readfds)) {
-            struct subsThreadArgs udp_args;
+            struct subsThreadArgs *udp_args = malloc(sizeof(struct subsThreadArgs));
             pthread_t udpThread;
 
-            udp_args.controller = controllers;
-            udp_args.srvConf = &serv_conf;
-            udp_args.socket = udp_socket;
+            udp_args->controller = controllers;
+            udp_args->srvConf = &serv_conf;
+            udp_args->socket = udp_socket;
 
-            if(pthread_create(&udpThread, NULL, handleUDPConnection, (void *)&udp_args) < 0){
+            if(pthread_create(&udpThread, NULL, handleUDPConnection, (void *)udp_args) < 0){
                 lerror("Unexpected error while starting new TCP thread",true);
+                free(udp_args);
             } else {
-                /* Detach the thread after successful creation */
                 if (pthread_detach(udpThread) != 0) {
                     lerror("Failed to detach TCP thread", true);
                 }

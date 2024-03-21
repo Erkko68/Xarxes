@@ -136,42 +136,71 @@ void *dataPetition(void *st){
 
     /* Recv packet */
     dataPacket = recvTcp(dataSckt);
+
+    /* Check credentials */
+
+    if (strcmp(dataPacket->mac,args->controller->mac) != 0 || 
+        strcmp(dataPacket->rnd,args->controller->data.rand) != 0){
+
+        lwarning("Recevied wrong DATA_ACK credentials. Disconnecting controller...",false);
+        disconnectController(args->controller);
+
+        close(dataSckt);
+        free(args);
+        return NULL;
+    }
     
-    pthread_mutex_lock(&mutex);
-        switch (dataPacket->type) {
-            case DATA_ACK:
+    if(strcmp(dataPacket->device,args->device) != 0){
+        lwarning("Recevied wrong requested device. Disconnecting controller...",false);
+        disconnectController(args->controller);
 
-                linfo("Received confirmation for device %s. Storing data...",true,args->device);
-                if ((result = save(dataPacket,args->controller)) == NULL){
-                    linfo("Controller %s updated %s. Value: %s", false, dataPacket->mac,dataPacket->device,dataPacket->value);
-                } else {
-                    /* Print fail messages */
-                    sprintf(msg,"Couldn't store %s data %s.",dataPacket->device,result);
-                    lwarning("Couldn't store %s data from Controller: %s. Reason: %s", false,dataPacket->device,args->controller->name,result);
-                    /* Send error packet */
-                    sendTcp(dataSckt, createTCPPacket(DATA_NACK,args->controller->mac,args->controller->data.rand,dataPacket->device,dataPacket->value,msg));
-                    /* Disconnect packet */
-                    disconnectController(args->controller);
-                }
-                break;
+        close(dataSckt);
+        free(args);
+        return NULL;
+    }
 
-            case DATA_NACK:
+    if(packetType == SET_DATA && strcmp(dataPacket->value,args->value) != 0){
+        lwarning("Recevied wrong value for requested device. Disconnecting controller...",false);
+        disconnectController(args->controller);
+        
+        close(dataSckt);
+        free(args);
+        return NULL;
+    }
+    
+    switch (dataPacket->type) {
+        case DATA_ACK:
 
-                lwarning("Couldn't set device info: %s",true,dataPacket->data);
-                break;
-
-            case DATA_REJ:
-
-                lwarning("Controller rejected data. Disconecting...",true);
+            linfo("Received confirmation for device %s. Storing data...",true,args->device);
+            if ((result = save(dataPacket,args->controller)) == NULL){
+                linfo("Controller %s updated %s. Value: %s", false, dataPacket->mac,dataPacket->device,dataPacket->value);
+            } else {
+                /* Print fail messages */
+                sprintf(msg,"Couldn't store %s data %s.",dataPacket->device,result);
+                lwarning("Couldn't store %s data from Controller: %s. Reason: %s", false,dataPacket->device,args->controller->name,result);
+                /* Send error packet */
+                sendTcp(dataSckt, createTCPPacket(DATA_NACK,args->controller->mac,args->controller->data.rand,dataPacket->device,dataPacket->value,msg));
+                /* Disconnect packet */
                 disconnectController(args->controller);
-                break;
+            }
+            break;
 
-            default:
+        case DATA_NACK:
 
-                lwarning("Unknown packet received",true);
-                break;
-        }
-    pthread_mutex_unlock(&mutex);
+            lwarning("Couldn't get device info: %s",true,dataPacket->data);
+            break;
+
+        case DATA_REJ:
+
+            lwarning("Controller rejected data. Disconecting...",true);
+            disconnectController(args->controller);
+            break;
+
+        default:
+
+            lwarning("Unknown packet received",true);
+            break;
+    }
 
     close(dataSckt);
     free(args);

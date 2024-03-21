@@ -55,9 +55,7 @@ void subsProcess(int socket, struct sockaddr_in *addr, struct Controller *contro
     } else if (received == 0) {
         /* Handle timeout */
         linfo("Controller %s hasn't sent [SUBS_INFO] in the last 2 seconds. Disconnecting...",false, controller->name);
-        pthread_mutex_lock(&mutex);
-            disconnectController(controller);
-        pthread_mutex_unlock(&mutex);
+        disconnectController(controller);
 
     } else {
         /* Handle [SUBS_INFO] */
@@ -170,12 +168,10 @@ void handleSubsInfo(struct Server *srvConf, struct sockaddr_in *newAddress, stru
         linfo("Controller: %s [SUBSCRIBED].", true, controller->name);
         pthread_mutex_lock(&mutex);
             controller->data.tcp = atoi(tcp);
-        pthread_mutex_unlock(&mutex);
-        inet_ntop(AF_INET, &(newAddress->sin_addr), controller->data.ip, INET_ADDRSTRLEN);
-        strcpy(controller->data.rand, rnd);
-        strcpy(controller->data.situation, situation);
-        storeDevices(devices, controller->data.devices, ";");
-        pthread_mutex_lock(&mutex);
+            inet_ntop(AF_INET, &(newAddress->sin_addr), controller->data.ip, INET_ADDRSTRLEN);
+            strcpy(controller->data.rand, rnd);
+            strcpy(controller->data.situation, situation);
+            storeDevices(devices, controller->data.devices, ";");
             controller->data.status = SUBSCRIBED;
             controller->data.lastPacketTime = time(NULL);
         pthread_mutex_unlock(&mutex);
@@ -348,6 +344,8 @@ void* handleUDPConnection(void* udp_args){
             args->controller[controllerIndex].data.lastPacketTime = 0; /* Reset last packet time */
         pthread_mutex_unlock(&mutex);
     }
+
+    free(args);
 
     return NULL;
 }

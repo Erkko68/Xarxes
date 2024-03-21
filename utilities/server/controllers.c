@@ -281,7 +281,6 @@ int hasDevice(const char *device, const struct Controller *controller) {
  */
 void disconnectController(struct Controller *controller) {
     pthread_mutex_lock(&mutex);
-        controller->data.status = DISCONNECTED;
-        controller->data.lastPacketTime = 0;
+        initializeControllerInfo(&controller->data);
     pthread_mutex_unlock(&mutex);
 }
