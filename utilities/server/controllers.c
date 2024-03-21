@@ -96,6 +96,7 @@ int loadControllers(struct Controller **controllers, const char *filename) {
     }
 
     *controllers = addController(*controllers,&numControllers,"NULL","NULL");
+    numControllers--;
 
     fclose(file);
 
