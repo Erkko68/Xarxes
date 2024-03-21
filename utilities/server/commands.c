@@ -93,7 +93,7 @@ void printList(struct Controller *controllers) {
         printInfoOrSpaces(controllers[i].data.rand, sizeof(controllers[i].data.rand) - 1);
         printf("%s ", getStatusName(controllers[i].data.status));
         printInfoOrSpaces(controllers[i].data.situation, sizeof(controllers[i].data.situation) - 1);
-        for (j = 0; strcmp(controllers[i].data.devices[j], "NULL") != 0; j++) {
+        for (j = 0; j< 10; j++) {
             printf("%s ", controllers[i].data.devices[j]);
         }
         printf("\n");

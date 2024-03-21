@@ -38,7 +38,7 @@ ctrl getNextLine(FILE* file) {
 
 void initializeControllerInfo(struct ControllerInfo *info) {
     int i;
-    info->status = '\0';
+    info->status = DISCONNECTED;
     info->situation[0] = '\0';
     info->rand[0] = '\0';
     for (i = 0; i < 11; i++) {
@@ -55,15 +55,16 @@ struct Controller* addController(struct Controller *controllers, int *numControl
     
     controllers = realloc(controllers, (*numControllers) * sizeof(struct Controller));
     if (controllers == NULL) {
-        fprintf(stderr, "Memory reallocation failed\n");
-        exit(EXIT_FAILURE);
+        lerror("Memory reallocation failed\n",true);
     }
 
     strncpy(controllers[*numControllers - 1].name, name, 8);
-    controllers[*numControllers - 1].name[8 - 1] = '\0';
+    controllers[*numControllers - 1].name[8] = '\0';
     strncpy(controllers[*numControllers - 1].mac, mac, 12);
-    controllers[*numControllers - 1].mac[12 - 1] = '\0';
+    controllers[*numControllers - 1].mac[12] = '\0';
     initializeControllerInfo(&controllers[*numControllers - 1].data);
+
+    printf("%s,%s\n",controllers[*numControllers-1].name,controllers[*numControllers-1].mac);
 
     return controllers;
 }
@@ -91,8 +92,10 @@ int loadControllers(struct Controller **controllers, const char *filename) {
 
     while (!feof(file)) {
         controller = getNextLine(file);
-        addController(*controllers,&numControllers,controller.name,controller.mac);
+        *controllers = addController(*controllers,&numControllers,controller.name,controller.mac);
     }
+
+    *controllers = addController(*controllers,&numControllers,"NULL","NULL");
 
     fclose(file);
 
