@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, quit);
 
     /* Init thread pool */
-    threadPool = thread_pool_create();
+    threadPool = thread_pool_create(4,10);
 
     /*Initialise server configuration struct*/
     linfo("Reading server configuration files...",false);
@@ -158,6 +158,8 @@ int main(int argc, char *argv[]) {
         if (FD_ISSET(udp_socket, &readfds)) {
             /* Need to malloc due to possible thread creation overwritting still in use thread args */
             struct subsThreadArgs *udp_args = malloc(sizeof(struct subsThreadArgs));
+            /*linfo("Received data in file descriptor UDP.", false);*/
+            udp_args->packet = recvUdp(udp_socket, &udp_args->addr);
 
             pthread_mutex_lock(&mutex);
             udp_args->controller = controllers;

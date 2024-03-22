@@ -320,30 +320,25 @@ void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *control
  */
 void handleUDPConnection(void* udp_args){
     struct subsThreadArgs *args = (struct subsThreadArgs*)udp_args;
-    struct sockaddr_in clienAddr;
-    struct UDPPacket udp_packet;
-    /* Receive data and find the controller index, if it exists */
     int controllerIndex = 0;
-    /*linfo("Received data in file descriptor UDP.", false);*/
-    udp_packet = recvUdp(args->socket, &clienAddr);
 
     /*Checks if incoming packet has allowed name and mac adress*/
     pthread_mutex_lock(&mutex);
-    if ((controllerIndex = isUDPAllowed(udp_packet, args->controller, args->srvConf->numControllers)) != -1) {
+    if ((controllerIndex = isUDPAllowed(args->packet, args->controller, args->srvConf->numControllers)) != -1) {
 
         if ((args->controller[controllerIndex].data.status == DISCONNECTED)){
             pthread_mutex_unlock(&mutex);
-            handleDisconnected(&udp_packet, &args->controller[controllerIndex], args->socket, args->srvConf, &clienAddr);
+            handleDisconnected(&args->packet, &args->controller[controllerIndex], args->socket, args->srvConf, &args->addr);
 
         } else if (args->controller[controllerIndex].data.status == SUBSCRIBED || args->controller[controllerIndex].data.status == SEND_HELLO){
             pthread_mutex_unlock(&mutex);
-            handleHello(udp_packet, &args->controller[controllerIndex], args->socket, args->srvConf, &clienAddr);
+            handleHello(args->packet, &args->controller[controllerIndex], args->socket, args->srvConf, &args->addr);
 
         } else {
             /* linfo("Denied connection to: %s. Reason: Invalid status.", false, udp_packet.mac); */
             sendUdp(args->socket, 
                 createUDPPacket(SUBS_REJ, args->srvConf->mac, "00000000", "Subscription Denied: Invalid Status."), 
-                &clienAddr
+                &args->addr
             );
             args->controller[controllerIndex].data.lastPacketTime = 0; /* Reset last packet time */
             pthread_mutex_unlock(&mutex);
@@ -351,10 +346,10 @@ void handleUDPConnection(void* udp_args){
 
     }else { /* Reject Connection sending a [SUBS_REJ] packet */
         pthread_mutex_unlock(&mutex);
-        linfo("Denied connection: %s. Reason: Not listed in allowed Controllers file.", false, udp_packet.mac);
+        linfo("Denied connection: %s. Reason: Not listed in allowed Controllers file.", false, args->packet.mac);
         sendUdp(args->socket,
                 createUDPPacket(SUBS_REJ, args->srvConf->mac, "00000000", "Subscription Denied: You are not listed in allowed Controllers file."), 
-                &clienAddr
+                &args->addr
         );
         pthread_mutex_lock(&mutex);
             args->controller[controllerIndex].data.lastPacketTime = 0; /* Reset last packet time */

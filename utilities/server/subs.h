@@ -23,7 +23,9 @@ Structure for subscription thread arguments
 struct subsThreadArgs {
     struct Server *srvConf;     
     struct Controller *controller;   
-    int socket;                       
+    int socket;
+    struct UDPPacket packet;
+    struct sockaddr_in addr;
 };
 
 #include "../commons.h"
