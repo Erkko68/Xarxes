@@ -15,8 +15,8 @@
 
 #include "commons.h"
 
-#define MAX_THREADS 10 /* Maximum number of worker threads in the thread pool. */
-#define MAX_QUEUE_SIZE 1000 /* Maximum size of the task queue in the thread pool. */
+#define MAX_THREADS 5 /* Maximum number of worker threads in the thread pool. */
+#define MAX_QUEUE_SIZE 20 /* Maximum size of the task queue in the thread pool. */
 
 /**
  * @brief Represents a task to be executed by the thread pool.

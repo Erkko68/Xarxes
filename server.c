@@ -159,7 +159,9 @@ int main(int argc, char *argv[]) {
             /* Need to malloc due to possible thread creation overwritting still in use thread args */
             struct subsThreadArgs *udp_args = malloc(sizeof(struct subsThreadArgs));
 
+            pthread_mutex_lock(&mutex);
             udp_args->controller = controllers;
+            pthread_mutex_unlock(&mutex);
             udp_args->srvConf = &serv_conf;
             udp_args->socket = udp_socket;
 
@@ -168,14 +170,20 @@ int main(int argc, char *argv[]) {
 
         /*Update controllers packet timers*/
         for (i = 0; i < serv_conf.numControllers; i++) {
+            pthread_mutex_lock(&mutex);
             if (controllers[i].data.lastPacketTime != 0) {
                 time_t current_time = time(NULL);
                 /* Check if 6 seconds have passed since the last packet */
                 if (current_time - controllers[i].data.lastPacketTime > 6) {
+                    pthread_mutex_unlock(&mutex);
                     linfo("Controller %s hasn't sent 3 consecutive packets. DISCONNECTING...",false,controllers[i].name);
                     disconnectController(&controllers[i]);
+                    continue;
                 }
+                pthread_mutex_unlock(&mutex);
+                continue;
             }
+            pthread_mutex_unlock(&mutex);
         }
 
         /* Check if the TCP file descriptor has received data */   
@@ -187,7 +195,6 @@ int main(int argc, char *argv[]) {
 
             /* Thread args */
             struct dataThreadArgs *threadArgs = malloc(sizeof(struct dataThreadArgs));
-            printf("TCP\n");
             threadArgs->controllers = controllers;
             threadArgs->servConf = &serv_conf;
 
