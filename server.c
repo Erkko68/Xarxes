@@ -152,6 +152,7 @@ int main(int argc, char *argv[]) {
         /* Check if UDP file descriptor has received data */
         
         if (FD_ISSET(udp_socket, &readfds)) {
+            /* Need to malloc due to possible thread creation overwritting still in use thread args */
             struct subsThreadArgs *udp_args = malloc(sizeof(struct subsThreadArgs));
             pthread_t udpThread;
 
@@ -226,10 +227,25 @@ int main(int argc, char *argv[]) {
             }
             commandLine[strcspn(commandLine, "\n")] = '\0';
             sanitizeString(commandLine);
-
+            /* CHANGE SSCNAF */
+            /* CHANGE SSCNAF */
+            /* CHANGE SSCNAF */
+            /* CHANGE SSCNAF */
+            /* CHANGE SSCNAF */
+            /* CHANGE SSCNAF */
+            /* CHANGE SSCNAF */
+            /* CHANGE SSCNAF */
+            /* CHANGE SSCNAF */
+            /* CHANGE SSCNAF */
+            /* CHANGE SSCNAF */
+            /* CHANGE SSCNAF */
+            /* CHANGE SSCNAF */
+            /* CHANGE SSCNAF */
+            /* CHANGE SSCNAF */
+            /* CHANGE SSCNAF */
             /*Get command and arguments*/
             args = sscanf(commandLine, "%4s %8s %7s %6s", command, controller, device, value);
-
+            
             if (strcmp(command, "list") == 0 && args == 1) {
                 printList(controllers,serv_conf.numControllers);
             } else if (strcmp(command, "set") == 0 && args == 4) {

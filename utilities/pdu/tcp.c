@@ -146,13 +146,13 @@ void sendTcp(const int socketFd, struct TCPPacket* packet) {
  * 
  * @return Returns a TCPPacket struct with the data decoded from the received byte array.
  */
-struct TCPPacket* recvTcp(const int socketFd){
+struct TCPPacket* recvTcp(const int *socketFd){
     int val;
     char buffer[PDUTCP]; /* Init buffer */
 
     /* Execute packet reception */
-    val = recv(socketFd, buffer, PDUTCP,0);
-    if ( val == 0) {
+    val = recv(*socketFd, buffer, PDUTCP,0);
+    if ( val == 0 ) {
         lwarning("Host disconnected.",false);
         return NULL;
     } else if ( val < 0 ) {

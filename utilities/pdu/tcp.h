@@ -101,7 +101,7 @@ void sendTcp(const int socketFd, struct TCPPacket* packet);
  * 
  * @return Returns a TCPPacket struct with the data decoded from the received byte array.
  */
-struct TCPPacket* recvTcp(const int socketFd);
+struct TCPPacket* recvTcp(const int *socketFd);
 
 /* Debug */
 void printTCPPacket(struct TCPPacket packet);

@@ -116,6 +116,15 @@ void *dataPetition(void *st){
         disconnectController(args->controller);
         return NULL;
     }
+
+    /*Set select timeout*/
+    tcpTimeout.tv_sec = 3;
+    tcpTimeout.tv_usec = 0;
+    if(setsockopt(dataSckt,SOL_SOCKET,SO_RCVTIMEO,(const char*)&tcpTimeout,sizeof(tcpTimeout)) < 0){
+        close(dataSckt);
+        lerror("Unexpected error when setting TCP socket settings",true);
+    }
+    
     /* Check if we want to send or get data */
     if( strcmp(args->value,"") == 0 ){
         packetType = GET_DATA;
@@ -126,23 +135,24 @@ void *dataPetition(void *st){
     /* Create and send SET_DATA packet */
     sendTcp(dataSckt,createTCPPacket(packetType,args->servConf->mac,args->controller->data.rand,args->device,args->value,""));
 
-    /*Set select timeout*/
-    tcpTimeout.tv_sec = 3;
-    tcpTimeout.tv_usec = 0;
-    if(setsockopt(dataSckt,SOL_SOCKET,SO_RCVTIMEO,(const char*)&tcpTimeout,sizeof(tcpTimeout)) < 0){
+    /* Recv packet */
+    dataPacket = recvTcp(&dataSckt);
+
+    /* Check packet */
+    if (dataPacket == NULL){
+        lwarning("Didn't receive DATA_ACK packet in 3 seconds. Disconnecting %s.",false,args->controller->name);
+        disconnectController(args->controller);
+
         close(dataSckt);
-        lerror("Unexpected error when setting TCP socket settings",true);
+        free(args);
+        return NULL;
     }
 
-    /* Recv packet */
-    dataPacket = recvTcp(dataSckt);
-
-    /* Check credentials */
 
     if (strcmp(dataPacket->mac,args->controller->mac) != 0 || 
         strcmp(dataPacket->rnd,args->controller->data.rand) != 0){
 
-        lwarning("Recevied wrong DATA_ACK credentials. Disconnecting controller...",false);
+        lwarning("Recevied wrong DATA_ACK credentials. Disconnecting %s.",false,args->controller->name);
         disconnectController(args->controller);
 
         close(dataSckt);
@@ -151,7 +161,7 @@ void *dataPetition(void *st){
     }
     
     if(strcmp(dataPacket->device,args->device) != 0){
-        lwarning("Recevied wrong requested device. Disconnecting controller...",false);
+        lwarning("Recevied wrong requested device. Disconnecting %s.",false,args->controller->name);
         disconnectController(args->controller);
 
         close(dataSckt);
@@ -160,9 +170,9 @@ void *dataPetition(void *st){
     }
 
     if(packetType == SET_DATA && strcmp(dataPacket->value,args->value) != 0){
-        lwarning("Recevied wrong value for requested device. Disconnecting controller...",false);
+        lwarning("Recevied wrong value for requested device. Disconnecting %s.",false,args->controller->name);
         disconnectController(args->controller);
-        
+
         close(dataSckt);
         free(args);
         return NULL;
@@ -228,7 +238,7 @@ void* dataReception(void* args){
     char msg[80];
 
     /*Get Packet*/
-    tcp_packet = recvTcp(dataArgs->client_socket);
+    tcp_packet = recvTcp(&dataArgs->client_socket);
     if (tcp_packet == NULL) {
         lwarning("Haven't received data trough TCP socket in 3 seconds. Clossing socket...",false);
         close(dataArgs->client_socket);
@@ -275,6 +285,7 @@ void* dataReception(void* args){
         } else {
             sprintf(msg,"Wrong Identification.");
             lwarning("Denied connection to Controller: %s. Reason: Wrong Identification.", false, tcp_packet->mac);
+            disconnectController(&dataArgs->controllers[controllerIndex]);
             packetType = DATA_REJ;
         }
 
