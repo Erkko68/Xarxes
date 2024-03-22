@@ -576,7 +576,7 @@ def open_comm():
     try:
         sock_tcp.bind((config.client['Server'], int(config.client['Local_TCP'])))
     except OSError:
-        logs.warning(f"Failed to bind to local TCP port: Address might already be in use by another client or itself.")
+        logs.error(f"Failed to bind to local TCP port: Address might already be in use by another client or itself.")
     
     # Call listen
     try:
