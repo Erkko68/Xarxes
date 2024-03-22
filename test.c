@@ -1,27 +1,25 @@
-/**
- * @file threadpool.c
- * @brief Methods file for thread pool management.
- * 
- * This c file contains implementations for functions related to the management
- * of a thread pool for concurrent task execution.
- * 
- * @author Eric Bitria Ribes
- * @version 0.1
- * @date 2024-3-22
- */
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
 
-#include "commons.h"
+#define MAX_THREADS 10
+#define MAX_QUEUE_SIZE 1000
 
-/**
- * @brief Worker function for thread pool.
- *
- * This function represents the worker routine that each thread in the
- * thread pool executes. It continuously waits for tasks to be available
- * in the task queue, executes them, and then waits for the next task.
- * If the shutdown flag is set, the worker thread exits.
- * 
- * @param arg Pointer to the thread pool structure.
- */
+typedef struct {
+    void (*function)(void*);
+    void *argument;
+} task_t;
+
+typedef struct {
+    task_t tasks[MAX_QUEUE_SIZE];
+    int head, tail, count;
+    pthread_mutex_t lock;
+    pthread_cond_t not_empty, not_full;
+    int shutdown;
+    pthread_t threads[MAX_THREADS];
+} thread_pool_t;
+
 void* worker(void *arg) {
     thread_pool_t *pool = (thread_pool_t*)arg;
     while (1) {
@@ -44,15 +42,6 @@ void* worker(void *arg) {
     }
 }
 
-/**
- * @brief Creates a new thread pool.
- *
- * This function dynamically allocates memory for a new thread pool
- * structure, initializes its attributes, and creates worker threads
- * to handle tasks submitted to the pool.
- * 
- * @return Returns a pointer to the newly created thread pool.
- */
 thread_pool_t* thread_pool_create() {
     thread_pool_t *pool = (thread_pool_t*)malloc(sizeof(thread_pool_t));
     pool->head = pool->tail = pool->count = 0;
@@ -67,18 +56,6 @@ thread_pool_t* thread_pool_create() {
     return pool;
 }
 
-/**
- * @brief Submits a task to the thread pool.
- *
- * This function adds a new task to the task queue of the specified
- * thread pool. If the queue is full, it waits until space becomes
- * available. Once the task is added, it signals the worker threads
- * that a new task is available for execution.
- * 
- * @param pool Pointer to the thread pool.
- * @param function Pointer to the function representing the task.
- * @param argument Pointer to the argument for the task function.
- */
 void thread_pool_submit(thread_pool_t *pool, void (*function)(void*), void *argument) {
     pthread_mutex_lock(&pool->lock);
     while (pool->count == MAX_QUEUE_SIZE) {
@@ -92,17 +69,6 @@ void thread_pool_submit(thread_pool_t *pool, void (*function)(void*), void *argu
     pthread_mutex_unlock(&pool->lock);
 }
 
-
-/**
- * @brief Shuts down the thread pool.
- *
- * This function initiates the shutdown process for the thread pool.
- * It sets the shutdown flag, broadcasts to all worker threads that
- * they should exit, waits for all threads to join, and then cleans
- * up the resources associated with the thread pool.
- * 
- * @param pool Pointer to the thread pool to be shut down.
- */
 void thread_pool_shutdown(thread_pool_t *pool) {
     pthread_mutex_lock(&pool->lock);
     pool->shutdown = 1;
@@ -115,4 +81,26 @@ void thread_pool_shutdown(thread_pool_t *pool) {
     pthread_cond_destroy(&pool->not_empty);
     pthread_cond_destroy(&pool->not_full);
     free(pool);
+}
+
+void example_task(void *arg) {
+    long *num = (long*)arg;
+    printf("Task executed with argument: %ld\n", *num);
+}
+
+int main() {
+    thread_pool_t *pool = thread_pool_create();
+
+    for (int i = 0; i < 20; i++) {
+        long *num = (long*)malloc(sizeof(long));
+        *num = i;
+        thread_pool_submit(pool, example_task, (void*)num);
+    }
+
+    // Wait a bit to ensure all tasks are executed
+    sleep(5);
+
+    thread_pool_shutdown(pool);
+
+    return 0;
 }

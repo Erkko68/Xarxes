@@ -10,29 +10,88 @@
 #include "../commons.h"
 
 /**
- * @brief Sanitizes a string by removing leading and trailing spaces.
+ * @brief Parses the input command line and extracts the command, controller, device, and value.
  *
- * This function modifies the given string by removing leading and trailing spaces.
- * It shifts the substring containing non-space characters to the beginning of the original string
- * and null-terminates the new string.
+ * This function parses the input command line and extracts the command, controller, device, and value
+ * based on the space delimiter. It also removes trailing newline characters from the input.
+ * If any length exceeds the maximum allowed length, it prints a warning message and sets the
+ * corresponding variable to an empty string.
  * 
- * @param str The string to sanitize.
+ * @param commandLine The input command line to be parsed.
+ * @param command Pointer to store the extracted command.
+ * @param controller Pointer to store the extracted controller.
+ * @param device Pointer to store the extracted device.
+ * @param value Pointer to store the extracted value.
+ * @return The number of parameters extracted.
  */
-void sanitizeString(char *str) {
-    int start = 0, end = strlen(str) - 1;
+int parseInput(char *commandLine, char *command, char *controller, char *device, char *value) {
+    int args = 0; /* Initialize args counter */
+    char *current = commandLine; /* Pointer to the beginning of commandLine */
+    char *next;
+    int length;
 
-    /*Find the first non-space character*/
-    while (str[start] == ' ') {
-        start++;
+    /* Loop until the end of commandLine or until args is 4 */
+    while (*current != '\0' && args < 4) {
+        /* Skip leading spaces */
+        while (*current == ' ') {
+            current++;
+        }
+
+        /* If end of string is reached after spaces, break the loop */
+        if (*current == '\0') {
+            break;
+        }
+
+        next = strchr(current, ' ');
+        if (next == NULL) {
+            next = current + strlen(current); /* If no space found, point to the end of string */
+        }
+        length = next - current; /* Calculate length of the word */
+        
+        /* Get the next word and store it in the appropriate variable */
+        switch (args) {
+            case 0:
+                strncpy(command, current, length);
+                command[length] = '\0';
+                break;
+            case 1:
+                if (length > 8) {
+                    lwarning("Controller name exceeds maximum length. (8)", true);
+                    controller[0] = '\0'; /* Empty the controller string */
+                    return -1;
+                } else {
+                    strncpy(controller, current, length);
+                    controller[length] = '\0';
+                }
+                break;
+            case 2:
+                if (length > 7) {
+                    lwarning("Device name exceeds maximum length. (7)", true);
+                    device[0] = '\0'; /* Empty the device string */
+                    return -1;
+                } else {
+                    strncpy(device, current, length);
+                    device[length] = '\0';
+                }
+                break;
+            case 3:
+                if (length > 6) {
+                    lwarning("Value exceeds maximum length. (6)", true);
+                    value[0] = '\0'; /* Empty the value string */
+                    return -1;
+                } else {
+                    strncpy(value, current, length);
+                    value[length] = '\0';
+                }
+                break;
+        }
+        args++; /* Increment args counter */
+        current = next; /* Move current pointer to the next word */
     }
-    /*Find the last non-space character*/
-    while (end > start && (str[end] == ' ')) {
-        end--;
-    }
-    /*Shift the substring to the beginning of the original string*/
-    memmove(str, str + start, end - start + 1);
-    str[end - start + 1] = '\0'; /*Null-terminate the new string*/
+
+    return args;
 }
+
 
 /**
  * @brief Gets the string representation of the given status.

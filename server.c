@@ -225,26 +225,11 @@ int main(int argc, char *argv[]) {
             if (fgets(commandLine, sizeof(commandLine), stdin) == NULL) {
                 lerror("Fgets failed",true);
             }
+
+            /* Remove trailing newline character if present */
             commandLine[strcspn(commandLine, "\n")] = '\0';
-            sanitizeString(commandLine);
-            /* CHANGE SSCNAF */
-            /* CHANGE SSCNAF */
-            /* CHANGE SSCNAF */
-            /* CHANGE SSCNAF */
-            /* CHANGE SSCNAF */
-            /* CHANGE SSCNAF */
-            /* CHANGE SSCNAF */
-            /* CHANGE SSCNAF */
-            /* CHANGE SSCNAF */
-            /* CHANGE SSCNAF */
-            /* CHANGE SSCNAF */
-            /* CHANGE SSCNAF */
-            /* CHANGE SSCNAF */
-            /* CHANGE SSCNAF */
-            /* CHANGE SSCNAF */
-            /* CHANGE SSCNAF */
-            /*Get command and arguments*/
-            args = sscanf(commandLine, "%4s %8s %7s %6s", command, controller, device, value);
+            
+            args = parseInput(commandLine, command, controller, device, value);
             
             if (strcmp(command, "list") == 0 && args == 1) {
                 printList(controllers,serv_conf.numControllers);
@@ -268,7 +253,7 @@ int main(int argc, char *argv[]) {
                 }
             } else if (strcmp(command, "quit") == 0 && args == 1) {
                 quit(0);
-            } else {
+            } else if (args != -1 ) {
                 linfo("Usage: list | set <controller-name> <device-name> <value> | get <controller-name> <device-name> | quit", 1);
             }
         }

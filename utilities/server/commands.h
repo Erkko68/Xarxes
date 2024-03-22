@@ -11,11 +11,16 @@
 
 
 /**
- * @brief Sanitizes a string by removing leading and trailing spaces.
+ * @brief Parses the input command line and extracts the command, controller, device, and value.
  * 
- * @param str The string to sanitize.
+ * @param commandLine The input command line to be parsed.
+ * @param command Pointer to store the extracted command.
+ * @param controller Pointer to store the extracted controller.
+ * @param device Pointer to store the extracted device.
+ * @param value Pointer to store the extracted value.
+ * @return The number of parameters extracted.
  */
-void sanitizeString(char *str);
+int parseInput(char *commandLine, char *command, char *controller, char *device, char *value);
 
 /**
  * @brief Gets the string representation of the given status.
