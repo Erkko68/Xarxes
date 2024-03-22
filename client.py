@@ -196,10 +196,7 @@ def send_hello_rej(hello: pdu_udp.Packet) -> None:
     - hello (pdu_udp.Packet): The incorrectly formatted HELLO packet.
     """
     hello.packet_type = pdu_udp.packet_type['HELLO_REJ']
-    logs.warning("Received wrong HELLO packet data.")
-    config.set_status('NOT_SUBSCRIBED')
     pdu_udp.send(sock_udp, pdu_udp.to_bytes(hello), config.client['Server_Config']['IP'], int(config.client['Srv_UDP']))
-    disconnected.set()
 
 def hello_recv_thread():
     global subs_attempts
@@ -244,11 +241,14 @@ def hello_recv_thread():
         logs.warning("Server hasn't sent 3 consecutive HELLO packets.")
         config.set_status('NOT_SUBSCRIBED')
         disconnected.set()
-        tcp_on.clear()
         return
 
     # If reached here controller received wrong HELLO packet data, sending HELLO_REJ
     send_hello_rej(hello)
+    logs.warning("Received wrong HELLO packet data.")
+    config.set_status('NOT_SUBSCRIBED')
+    disconnected.set()
+    return
 
 def hello_process_thread():
     """
@@ -267,6 +267,10 @@ def hello_process_thread():
     while not disconnected.is_set():
         pdu_udp.send(sock_udp, pdu_udp.to_bytes(hello_packet), config.client['Server_Config']['IP'], int(config.client['Srv_UDP']))
         time.sleep(2)
+
+    # If reached here HELLO comunication stopped, close Local_TCP
+    tcp_on.clear()
+    sock_tcp.close()
 
 #####################
 # Hello Process END #
@@ -565,20 +569,14 @@ def _init_():
 def open_comm():
     global sock_tcp
 
-    try:
-        sock_tcp.close()
-    except:
-        pass
-
     # Init socket
     sock_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     # Call bind
-    
     try:
         sock_tcp.bind((config.client['Server'], int(config.client['Local_TCP'])))
-    except OSError as e:
-        logs.error(f"Failed to bind to Local_TCP port: {e}")
+    except OSError:
+        logs.warning(f"Failed to bind to local TCP port: Address might already be in use by another client or itself.")
     
     # Call listen
     try:

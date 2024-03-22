@@ -5,25 +5,24 @@
  * @details This program handles communication between a server and multiple controllers using TCP and UDP protocols. It manages server configuration, socket creation, controller connections, and data transmission/reception.
  * 
  * @author Eric Bitria Ribes
- * @version 1.1
- * @date 2024-3-18
+ * @version 1.2
+ * @date 2024-3-22
  * 
  * @section Scope
  * - Server Configuration Management: Reads and initializes server settings from configuration files.
  * - Socket Initialization: Creates TCP and UDP socket file descriptors for communication with controllers.
  * - Controller Management:
  *      - Loads a list of allowed controllers into memory.
- *      - Monitors and validates incoming connections from controllers.
+ *      - Monitors and validates incoming connections from controllers using select.
  *      - Handles subscription requests and manages connection status updates.
  *      - Detects and handles disconnections and inactive controller detection.
- * - Concurrency Control: Implements mutexes to manage concurrent access to shared resources, ensuring data integrity.
  * - Communication Handling:
  *      - Receives and processes UDP packets from controllers.
  *      - Validates packet content and controller status.
  *      - Responds to controllers based on their status and request type.
  *      - Detects and handles TCP connections for data transmission between the server and controllers.
  * - User Interaction:
- *      - Accepts commands from the user via standard input for server management.
+ *      - Accepts commands from the user via standard input.
  *      - Supports commands for listing controllers, setting device values, getting device data, and quitting the server.
  * 
  * @section Organization
@@ -38,8 +37,6 @@
  * - `utilities/server/commands.c`: Executes server management commands.
  * - `utilities/server/data.c`: Handles data transmission, request and storage.
  * 
- * @encoding 
- * - All packet data is encoded and sent in UTF-8 format
  */
 
 #include "utilities/commons.h"
