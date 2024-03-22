@@ -50,6 +50,9 @@ int tcp_socket, udp_socket;
 /*Array of structs for allowed clients in memory*/
 struct Controller *controllers = NULL;
 
+/* Struct for thread pool */
+thread_pool_t *threadPool;
+
 /* Closes the server */
 void quit(int signum) {
     if (signum == SIGINT) {
@@ -57,11 +60,12 @@ void quit(int signum) {
     } else if(signum == 0) {
         printf("Closing server...\n");
     }
+    thread_pool_shutdown(threadPool);
+    close(udp_socket);
+    close(tcp_socket);
     /*Free controllers*/
     free(controllers);
     /*Close the socket file descriptors*/
-    close(udp_socket);
-    close(tcp_socket);
 
     exit(EXIT_SUCCESS);
 }
@@ -80,6 +84,9 @@ int main(int argc, char *argv[]) {
 
     /* Ctrl+C quit function */
     signal(SIGINT, quit);
+
+    /* Init thread pool */
+    threadPool = thread_pool_create();
 
     /*Initialise server configuration struct*/
     linfo("Reading server configuration files...",false);
@@ -151,20 +158,12 @@ int main(int argc, char *argv[]) {
         if (FD_ISSET(udp_socket, &readfds)) {
             /* Need to malloc due to possible thread creation overwritting still in use thread args */
             struct subsThreadArgs *udp_args = malloc(sizeof(struct subsThreadArgs));
-            pthread_t udpThread;
 
             udp_args->controller = controllers;
             udp_args->srvConf = &serv_conf;
             udp_args->socket = udp_socket;
 
-            if(pthread_create(&udpThread, NULL, handleUDPConnection, (void *)udp_args) < 0){
-                lerror("Unexpected error while starting new TCP thread",true);
-                free(udp_args);
-            } else {
-                if (pthread_detach(udpThread) != 0) {
-                    lerror("Failed to detach TCP thread", true);
-                }
-            }
+            thread_pool_submit(threadPool, handleUDPConnection, (void *)udp_args);
         }
 
         /*Update controllers packet timers*/
@@ -183,34 +182,28 @@ int main(int argc, char *argv[]) {
         if (FD_ISSET(tcp_socket, &readfds)) {
             /* TCP timeout settings */
             struct timeval tcpTimeout;
-            /* Thread args */
-            struct dataThreadArgs threadArgs;
             struct sockaddr_in clientAddr;
             socklen_t client_addr_len = sizeof(struct sockaddr_in);
-            pthread_t tcpThread;
 
-            threadArgs.controllers = controllers;
-            threadArgs.servConf = &serv_conf;
+            /* Thread args */
+            struct dataThreadArgs *threadArgs = malloc(sizeof(struct dataThreadArgs));
+            printf("TCP\n");
+            threadArgs->controllers = controllers;
+            threadArgs->servConf = &serv_conf;
 
-            if ((threadArgs.client_socket = accept(tcp_socket, (struct sockaddr *)&clientAddr, &client_addr_len)) == -1) {
+            if ((threadArgs->client_socket = accept(tcp_socket, (struct sockaddr *)&clientAddr, &client_addr_len)) == -1) {
                 lerror("Unexpected error while receiving TCP connection",true);
             }
 
             /*Set TCP socket max recv time*/
             tcpTimeout.tv_sec = 3;
             tcpTimeout.tv_usec = 0;
-            if(setsockopt(threadArgs.client_socket,SOL_SOCKET,SO_RCVTIMEO,(const char*)&tcpTimeout,sizeof(tcpTimeout)) < 0){
+            if(setsockopt(threadArgs->client_socket,SOL_SOCKET,SO_RCVTIMEO,(const char*)&tcpTimeout,sizeof(tcpTimeout)) < 0){
                 lerror("Unexpected error when setting TCP socket settings",true);
             }
 
-            if(pthread_create(&tcpThread, NULL, dataReception, (void *)&threadArgs) < 0){
-                lerror("Unexpected error while starting new TCP thread",true);
-            } else {
-                /* Detach the thread after successful creation */
-                if (pthread_detach(tcpThread) != 0) {
-                    lerror("Failed to detach TCP thread", true);
-                }
-            }
+            thread_pool_submit(threadPool, dataReception, (void *)threadArgs);
+
         }
 
         /* Server commands */
@@ -238,7 +231,7 @@ int main(int argc, char *argv[]) {
                 } else if (strlen(value) > 6) {
                     lwarning("Value exceeds maximum length. (6)", true);
                 } else {
-                    commandDataPetition(controller, device, value, controllers,&serv_conf);
+                    commandDataPetition(controller, device, value, controllers,&serv_conf,threadPool);
                 }
             } else if (strcmp(command, "get") == 0 && args == 3) {
                 if (strlen(controller) > 8) {
@@ -246,7 +239,7 @@ int main(int argc, char *argv[]) {
                 } else if (strlen(device) > 7) {
                     lwarning("Device name exceeds maximum length. (7)", true);
                 } else {
-                    commandDataPetition(controller, device, "", controllers,&serv_conf);
+                    commandDataPetition(controller, device, "", controllers,&serv_conf,threadPool);
                 }
             } else if (strcmp(command, "quit") == 0 && args == 1) {
                 quit(0);

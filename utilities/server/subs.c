@@ -307,7 +307,7 @@ void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *control
  * @param udp_args Pointer to a struct subsThreadArgs containing thread arguments.
  * @return NULL
  */
-void* handleUDPConnection(void* udp_args){
+void handleUDPConnection(void* udp_args){
     struct subsThreadArgs *args = (struct subsThreadArgs*)udp_args;
     struct sockaddr_in clienAddr;
     struct UDPPacket udp_packet;
@@ -345,7 +345,5 @@ void* handleUDPConnection(void* udp_args){
         pthread_mutex_unlock(&mutex);
     }
 
-    free(args);
-
-    return NULL;
+    return;
 }

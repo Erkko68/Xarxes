@@ -174,11 +174,11 @@ void printList(struct Controller *controllers, int maxControllers) {
  * @param value Pointer to a string containing the value.
  * @param controllers Pointer to an array of Controller structures.
  * @param srvConf Pointer to a Server structure.
+ * @param threadpool Pointer to thread pool
  */ 
-void commandDataPetition(char *controller, char *device, char *value, struct Controller *controllers, struct Server *srvConf) {
+void commandDataPetition(char *controller, char *device, char *value, struct Controller *controllers, struct Server *srvConf, thread_pool_t *threadpool) {
     int controllerNum;
     int deviceNum;
-    pthread_t dataThread;
     
     /* Check if the controller exists and is not disconnected */
     if ((controllerNum = hasController(controller, controllers,srvConf->numControllers)) != -1 && controllers[controllerNum].data.status != DISCONNECTED) {
@@ -195,16 +195,7 @@ void commandDataPetition(char *controller, char *device, char *value, struct Con
             args->value = value;
             args->servConf = srvConf;
 
-            /* Create a new thread to handle the data petition */
-            if(pthread_create(&dataThread, NULL, dataPetition, (void *)args) < 0) {
-                lerror("Unexpected error while starting new TCP thread.", true);
-            } else {
-                /* Detach the thread after successful creation */
-                if (pthread_detach(dataThread) != 0) {
-                    lerror("Failed to detach TCP thread", true);
-                }
-            }
-
+            thread_pool_submit(threadpool,dataPetition,(void *)args);
         } else {
             lwarning("Device in controller %s not found", true, controllers[controllerNum].mac);
         }

@@ -35,6 +35,7 @@
 extern pthread_mutex_t mutex;
 
 /*Own Libraries*/
+#include "threadpool.h"
 #include "pdu/udp.h"
 #include "pdu/tcp.h"
 #include "server/controllers.h"
@@ -43,7 +44,6 @@ extern pthread_mutex_t mutex;
 #include "server/commands.h"
 #include "server/data.h"
 #include "logs.h"
-#include "threadpool.h"
 
 
 #endif /* COMMONS_H */

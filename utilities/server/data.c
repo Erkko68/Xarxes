@@ -85,7 +85,7 @@ const char* save(struct TCPPacket *packet, struct Controller *controller) {
  * @param st Pointer to a struct dataPetition containing necessary arguments.
  * @return NULL
  */
-void *dataPetition(void *st){
+void dataPetition(void *st){
     struct dataPetition *args = (struct dataPetition*)st;
     int dataSckt;
     unsigned char packetType;
@@ -107,14 +107,14 @@ void *dataPetition(void *st){
     if (inet_pton(AF_INET, args->controller->data.ip, &client_addr.sin_addr) <= 0) {
         lwarning("Unexpected error when setting adress:",true);
         disconnectController(args->controller);
-        return NULL;
+        return;
     }
 
     if (connect(dataSckt, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
         close(dataSckt);
         lwarning("Connection to controller %s failed", true,args->controller->name);
         disconnectController(args->controller);
-        return NULL;
+        return;
     }
 
     /*Set select timeout*/
@@ -144,8 +144,7 @@ void *dataPetition(void *st){
         disconnectController(args->controller);
 
         close(dataSckt);
-        free(args);
-        return NULL;
+        return;
     }
 
 
@@ -156,8 +155,7 @@ void *dataPetition(void *st){
         disconnectController(args->controller);
 
         close(dataSckt);
-        free(args);
-        return NULL;
+        return;
     }
     
     if(strcmp(dataPacket->device,args->device) != 0){
@@ -165,8 +163,7 @@ void *dataPetition(void *st){
         disconnectController(args->controller);
 
         close(dataSckt);
-        free(args);
-        return NULL;
+        return;
     }
 
     if(packetType == SET_DATA && strcmp(dataPacket->value,args->value) != 0){
@@ -174,8 +171,7 @@ void *dataPetition(void *st){
         disconnectController(args->controller);
 
         close(dataSckt);
-        free(args);
-        return NULL;
+        return;
     }
     
     switch (dataPacket->type) {
@@ -213,9 +209,7 @@ void *dataPetition(void *st){
     }
 
     close(dataSckt);
-    free(args);
 
-    return NULL;
 }
 
 
@@ -229,7 +223,7 @@ void *dataPetition(void *st){
  * @param args Pointer to a struct dataThreadArgs containing necessary arguments.
  * @return NULL
  */
-void* dataReception(void* args){
+void dataReception(void* args){
     struct dataThreadArgs *dataArgs = (struct dataThreadArgs*)args;
     struct TCPPacket* tcp_packet;
 
@@ -243,14 +237,14 @@ void* dataReception(void* args){
         lwarning("Haven't received data trough TCP socket in 3 seconds. Clossing socket...",false);
         close(dataArgs->client_socket);
         free(tcp_packet);
-        return NULL;
+        return;
     }
     /*Check its SEND_DATA*/
     if(tcp_packet->type != SEND_DATA){
         lwarning("Received unexpected packet by controller %s. Expected [SEND_DATA].",false,tcp_packet->mac);
         close(dataArgs->client_socket);
         free(tcp_packet);
-        return NULL;
+        return;
     }
     /*Check allowed controller*/
     if((controllerIndex = isTCPAllowed(tcp_packet, dataArgs->controllers,dataArgs->servConf->numControllers)) != -1){ 
@@ -311,6 +305,5 @@ void* dataReception(void* args){
             );
     /*Close comunication*/
     close(dataArgs->client_socket);
-
-    return NULL;
+    return;
 }

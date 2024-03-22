@@ -55,7 +55,7 @@ const char *save(struct TCPPacket *packet, struct Controller *controller);
  * @param st Pointer to a struct dataPetition containing necessary arguments.
  * @return NULL
  */
-void *dataPetition(void *st);
+void dataPetition(void *st);
 
 
 /**
@@ -64,6 +64,6 @@ void *dataPetition(void *st);
  * @param args Pointer to a struct dataThreadArgs containing necessary arguments.
  * @return NULL
  */
-void* dataReception(void* args);
+void dataReception(void* args);
 
 #endif /* DATA_HANDLER_H */

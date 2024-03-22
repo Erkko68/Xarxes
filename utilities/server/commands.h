@@ -51,5 +51,6 @@ void printList(struct Controller *controllers, int maxControllers);
  * @param value Pointer to a string containing the value.
  * @param controllers Pointer to an array of Controller structures.
  * @param srvConf Pointer to a Server structure.
+ * @param threadpool Pointer to thread pool
  */ 
-void commandDataPetition(char *controller, char *device, char *value, struct Controller *controllers, struct Server *srvConf);
+void commandDataPetition(char *controller, char *device, char *value, struct Controller *controllers, struct Server *srvConf, thread_pool_t *threadpool);

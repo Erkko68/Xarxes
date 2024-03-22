@@ -104,6 +104,6 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
  * @param udp_args Pointer to a struct subsThreadArgs containing thread arguments.
  * @return NULL
  */
-void* handleUDPConnection(void* udp_args);
+void handleUDPConnection(void* udp_args);
 
 #endif /* SUBS_FUNCTIONS_H */
