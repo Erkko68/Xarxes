@@ -34,7 +34,8 @@
 			"string": "c",
 			"string_view": "c",
 			"errno.h": "c",
-			"compare": "c"
+			"compare": "c",
+			"unistd.h": "c"
 		}
 	}
 }

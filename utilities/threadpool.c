@@ -127,6 +127,10 @@ void thread_pool_shutdown(thread_pool_t *pool) {
     pthread_cond_signal(&pool->not_full);
     pthread_mutex_unlock(&pool->lock);
 
+    /* Wait for worker threads to receive POISON_PILL */
+    linfo("Closing threads...\n",false);
+    sleep((MAX_THREADS/2));
+
     for (i = 0; i < MAX_THREADS; i++) {
         pthread_join(pool->threads[i], NULL);
     }
