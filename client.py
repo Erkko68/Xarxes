@@ -310,12 +310,12 @@ def set_data(packet: pdu_tcp.Packet, socket: socket.socket) -> None:
         else:
             logs.warning("Device is a sensor and can't be assigned with values.")
             pdu_tcp.send(socket,
-                         pdu_tcp.to_bytes(pdu_tcp.Packet(pdu_tcp.packet_type['DATA_NACK'],config.client['MAC'],config.client['Server_Config']['rnd'],"","","Device is a sensor and can't be assigned with values."))
+                         pdu_tcp.to_bytes(pdu_tcp.Packet(pdu_tcp.packet_type['DATA_NACK'],config.client['MAC'],config.client['Server_Config']['rnd'],packet.device,packet.val,"Device is a sensor and can't be assigned with values."))
                         )
     else:
         logs.warning("Received SET_DATA request for an unowned device.")
         pdu_tcp.send(socket,
-                     pdu_tcp.to_bytes(pdu_tcp.Packet(pdu_tcp.packet_type['DATA_NACK'],config.client['MAC'],config.client['Server_Config']['rnd'],"","","Received SET_DATA request for an unowned device."))
+                     pdu_tcp.to_bytes(pdu_tcp.Packet(pdu_tcp.packet_type['DATA_NACK'],config.client['MAC'],config.client['Server_Config']['rnd'],packet.device,packet.val,"Received SET_DATA request for an unowned device."))
                      )
 
 def get_data(packet: pdu_tcp.Packet, socket: socket.socket) -> None:
@@ -348,7 +348,7 @@ def get_data(packet: pdu_tcp.Packet, socket: socket.socket) -> None:
     else:
         logs.warning("Received GET_DATA request for an unowned device.")
         pdu_tcp.send(socket,
-                    pdu_tcp.to_bytes(pdu_tcp.Packet(pdu_tcp.packet_type['DATA_NACK'],config.client['MAC'],config.client['Server_Config']['rnd'],"","","Received GET_DATA request for an unowned device."))
+                    pdu_tcp.to_bytes(pdu_tcp.Packet(pdu_tcp.packet_type['DATA_NACK'],config.client['MAC'],config.client['Server_Config']['rnd'],packet.device,packet.val,"Received GET_DATA request for an unowned device."))
                     )
 
 def recv_data():
@@ -636,14 +636,18 @@ def main():
 
         disconnected.set()
         sock_udp.close()
-        if tcp_on.is_set():
+        try:
             sock_tcp.close()
+        except:
+            pass
 
     finally:
         disconnected.set()
         sock_udp.close()
-        if tcp_on.is_set():
+        try:
             sock_tcp.close()
+        except:
+            pass
 
 # Program Call
 if __name__ == "__main__":

@@ -12,6 +12,8 @@
 
 #include "commons.h"
 
+#define POISON_PILL NULL
+
 /**
  * @brief Worker function for thread pool.
  *
@@ -27,22 +29,23 @@ void* worker(void *arg) {
     while (1) {
         task_t task;
         pthread_mutex_lock(&pool->lock);
-        while (pool->count == 0 && !pool->shutdown) {
+        while (pool->count == 0) {
             pthread_cond_wait(&pool->not_empty, &pool->lock);
         }
-        if (pool->shutdown) {
-            pthread_mutex_unlock(&pool->lock);
-            pthread_exit(NULL);
-        }
         task = pool->tasks[pool->head];
+        if (task.function == POISON_PILL) {
+            pthread_mutex_unlock(&pool->lock);
+            break;
+        }
         pool->head = (pool->head + 1) % MAX_QUEUE_SIZE;
         pool->count--;
         pthread_cond_signal(&pool->not_full);
         pthread_mutex_unlock(&pool->lock);
 
         (task.function)(task.argument);
-        free(task.argument); /* Free memory after task execution */
+        free(task.argument);
     }
+    pthread_exit(NULL);
 }
 
 /**
@@ -57,11 +60,13 @@ void* worker(void *arg) {
 thread_pool_t* thread_pool_create() {
     int i;
     thread_pool_t *pool = (thread_pool_t*)malloc(sizeof(thread_pool_t));
+    if (!pool) {
+        lerror("Failed to allocate memory for thread pool",true);
+    }
     pool->head = pool->tail = pool->count = 0;
     pthread_mutex_init(&pool->lock, NULL);
     pthread_cond_init(&pool->not_empty, NULL);
     pthread_cond_init(&pool->not_full, NULL);
-    pool->shutdown = 0;
 
     for (i = 0; i < MAX_THREADS; i++) {
         pthread_create(&pool->threads[i], NULL, worker, (void*)pool);
@@ -83,13 +88,12 @@ thread_pool_t* thread_pool_create() {
  */
 void thread_pool_submit(thread_pool_t *pool, void (*function)(void*), void *argument) {
     pthread_mutex_lock(&pool->lock);
-    /* Check if shutdown flag is set */
+    while (pool->count == MAX_QUEUE_SIZE) {
+        pthread_cond_wait(&pool->not_full, &pool->lock);
+    }
     if (pool->shutdown) {
         pthread_mutex_unlock(&pool->lock);
         return;
-    }
-    while (pool->count == MAX_QUEUE_SIZE) {
-        pthread_cond_wait(&pool->not_full, &pool->lock);
     }
     pool->tasks[pool->tail].function = function;
     pool->tasks[pool->tail].argument = argument;
@@ -112,15 +116,26 @@ void thread_pool_submit(thread_pool_t *pool, void (*function)(void*), void *argu
  */
 void thread_pool_shutdown(thread_pool_t *pool) {
     int i;
+
+    for (i = 0; i < MAX_THREADS; i++) {
+        thread_pool_submit(pool, POISON_PILL, NULL);
+    }
+
     pthread_mutex_lock(&pool->lock);
     pool->shutdown = 1;
+    pthread_cond_signal(&pool->not_empty);
+    pthread_cond_signal(&pool->not_full);
     pthread_mutex_unlock(&pool->lock);
-    pthread_cond_broadcast(&pool->not_empty);
+
     for (i = 0; i < MAX_THREADS; i++) {
         pthread_join(pool->threads[i], NULL);
     }
-    pthread_mutex_destroy(&pool->lock);
+
+    pthread_mutex_lock(&pool->lock);
     pthread_cond_destroy(&pool->not_empty);
     pthread_cond_destroy(&pool->not_full);
+    pthread_mutex_unlock(&pool->lock);
+
+    pthread_mutex_destroy(&pool->lock);
     free(pool);
 }

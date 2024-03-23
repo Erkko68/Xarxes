@@ -100,22 +100,27 @@ void dataPetition(void *st){
         lerror("Unexpected error opening socket", true);
     }
     /* Initialize server address struct */
+    pthread_mutex_lock(&mutex);
     memset(&client_addr, 0, sizeof(client_addr));
     client_addr.sin_family = AF_INET;
     client_addr.sin_port = htons(args->controller->data.tcp);
 
     if (inet_pton(AF_INET, args->controller->data.ip, &client_addr.sin_addr) <= 0) {
         lwarning("Unexpected error when setting adress:",true);
+        pthread_mutex_unlock(&mutex);
+        disconnectController(args->controller);
+        return;
+    }
+    pthread_mutex_unlock(&mutex);
+    if (connect(dataSckt, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
+        close(dataSckt);
+        pthread_mutex_lock(&mutex);
+        lwarning("Connection to controller %s failed", true,args->controller->name);
+        pthread_mutex_unlock(&mutex);
         disconnectController(args->controller);
         return;
     }
 
-    if (connect(dataSckt, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
-        close(dataSckt);
-        lwarning("Connection to controller %s failed", true,args->controller->name);
-        disconnectController(args->controller);
-        return;
-    }
 
     /*Set select timeout*/
     tcpTimeout.tv_sec = 3;
@@ -132,34 +137,52 @@ void dataPetition(void *st){
         packetType = SET_DATA;
     }
 
+    /* Ensure the device is an actuator */
+
     /* Create and send SET_DATA packet */
-    sendTcp(dataSckt,createTCPPacket(packetType,args->servConf->mac,args->controller->data.rand,args->device,args->value,""));
+    pthread_mutex_lock(&mutex);
+    sendTcp(dataSckt,
+        createTCPPacket(packetType,
+                        args->servConf->mac,
+                        args->controller->data.rand,
+                        args->device,
+                        args->value,
+                        ""
+                        )
+                    );
+    pthread_mutex_unlock(&mutex);
 
     /* Recv packet */
     dataPacket = recvTcp(&dataSckt);
 
     /* Check packet */
     if (dataPacket == NULL){
+        pthread_mutex_lock(&mutex);
         lwarning("Didn't receive DATA_ACK packet in 3 seconds. Disconnecting %s.",false,args->controller->name);
+        pthread_mutex_unlock(&mutex);
         disconnectController(args->controller);
 
         close(dataSckt);
         return;
     }
 
-
+    pthread_mutex_lock(&mutex);
     if (strcmp(dataPacket->mac,args->controller->mac) != 0 || 
         strcmp(dataPacket->rnd,args->controller->data.rand) != 0){
-
         lwarning("Recevied wrong DATA_ACK credentials. Disconnecting %s.",false,args->controller->name);
+        pthread_mutex_unlock(&mutex);
+
         disconnectController(args->controller);
 
         close(dataSckt);
         return;
     }
-    
+    pthread_mutex_unlock(&mutex);
+
     if(strcmp(dataPacket->device,args->device) != 0){
+        pthread_mutex_lock(&mutex);
         lwarning("Recevied wrong requested device. Disconnecting %s.",false,args->controller->name);
+        pthread_mutex_unlock(&mutex);
         disconnectController(args->controller);
 
         close(dataSckt);
@@ -167,7 +190,9 @@ void dataPetition(void *st){
     }
 
     if(packetType == SET_DATA && strcmp(dataPacket->value,args->value) != 0){
+        pthread_mutex_lock(&mutex);
         lwarning("Recevied wrong value for requested device. Disconnecting %s.",false,args->controller->name);
+        pthread_mutex_unlock(&mutex);
         disconnectController(args->controller);
 
         close(dataSckt);
@@ -183,9 +208,11 @@ void dataPetition(void *st){
             } else {
                 /* Print fail messages */
                 sprintf(msg,"Couldn't store %s data %s.",dataPacket->device,result);
+                pthread_mutex_lock(&mutex);
                 lwarning("Couldn't store %s data from Controller: %s. Reason: %s", false,dataPacket->device,args->controller->name,result);
                 /* Send error packet */
                 sendTcp(dataSckt, createTCPPacket(DATA_NACK,args->controller->mac,args->controller->data.rand,dataPacket->device,dataPacket->value,msg));
+                pthread_mutex_unlock(&mutex);
                 /* Disconnect packet */
                 disconnectController(args->controller);
             }

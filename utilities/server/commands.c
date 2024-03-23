@@ -181,12 +181,14 @@ void commandDataPetition(char *controller, char *device, char *value, struct Con
     int deviceNum;
     
     /* Check if the controller exists and is not disconnected */
+    pthread_mutex_lock(&mutex);
     if ((controllerNum = hasController(controller, controllers,srvConf->numControllers)) != -1 && controllers[controllerNum].data.status != DISCONNECTED) {
         /* Check if the device exists */
         if ((deviceNum = hasDevice(device, &controllers[controllerNum])) != -1) {
             /* Allocate memory to hold the arguments for the independent thread */
             struct dataPetition *args = malloc(sizeof(struct dataPetition));
             if (args == NULL) {
+                pthread_mutex_unlock(&mutex);
                 lerror("Failed memory allocation for commandData Thread", true);
             }
             /* Assign values to the arguments */
@@ -194,12 +196,14 @@ void commandDataPetition(char *controller, char *device, char *value, struct Con
             args->device = device;
             args->value = value;
             args->servConf = srvConf;
-
+            pthread_mutex_unlock(&mutex);
             thread_pool_submit(threadpool,dataPetition,(void *)args);
         } else {
             lwarning("Device in controller %s not found", true, controllers[controllerNum].mac);
+            pthread_mutex_unlock(&mutex);
         }
     } else {
+        pthread_mutex_unlock(&mutex);
         lwarning("Controller not found or disconnected", true);
     }
 }
