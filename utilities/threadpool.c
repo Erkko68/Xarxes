@@ -2,16 +2,17 @@
  * @file threadpool.c
  * @brief Methods file for thread pool management.
  * 
- * This c file contains implementations for functions related to the management
+ * This c file contains functions implementations related to the management
  * of a thread pool for concurrent task execution.
  * 
  * @author Eric Bitria Ribes
- * @version 0.1
- * @date 2024-3-22
+ * @version 0.2
+ * @date 2024-3-24
  */
 
 #include "commons.h"
 
+/* Define POISON_PILL task wich tells the workers thread to stop their execution */
 #define POISON_PILL NULL
 
 /**

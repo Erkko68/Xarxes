@@ -11,6 +11,7 @@ Last Modified: 2024-3-18
 # Args
 import sys
 import argparse
+import signal
 # Sockets
 import socket, select
 # Time
@@ -214,14 +215,17 @@ def hello_recv_thread():
         logs.warning("Received HELLO_REJ.")
         disconnected.set()
         return
-    elif check_hello(hello, addr):
-        # Set status
-        subs_attempts = 0
-        config.set_status('SEND_HELLO')
-        open_comm()
     else:
-        send_hello_rej(hello)
-        return
+        if check_hello(hello, addr):
+            # Set status
+            config.set_status('SEND_HELLO')
+            open_comm()
+        else:
+            send_hello_rej(hello)
+            disconnected.set()
+            logs.warning("Received wrong HELLO packet credentials.")
+            return
+
     # Set default timeout
     sock_udp.settimeout(2)
 
@@ -231,23 +235,34 @@ def hello_recv_thread():
         hello, addr = pdu_udp.recvUDP(sock_udp)
         if hello is None:
             missed += 1
+        elif hello.packet_type == pdu_udp.packet_type['HELLO_REJ']:
+            logs.warning("Received HELLO_REJ.")
+            sock_tcp.close()
+            disconnected.set()
+            tcp_on.clear()
+            return
         else:
             if check_hello(hello, addr):
                 missed = 0
+                subs_attempts = 0
             else:
                 break
     else:   
         # If reached here lost connection with server, stopping reception thread
         logs.warning("Server hasn't sent 3 consecutive HELLO packets.")
         config.set_status('NOT_SUBSCRIBED')
+        sock_tcp.close()
         disconnected.set()
+        tcp_on.clear()
         return
 
     # If reached here controller received wrong HELLO packet data, sending HELLO_REJ
     send_hello_rej(hello)
     logs.warning("Received wrong HELLO packet data.")
     config.set_status('NOT_SUBSCRIBED')
+    sock_tcp.close()
     disconnected.set()
+    tcp_on.clear()
     return
 
 def hello_process_thread():
@@ -267,10 +282,6 @@ def hello_process_thread():
     while not disconnected.is_set():
         pdu_udp.send(sock_udp, pdu_udp.to_bytes(hello_packet), config.client['Server_Config']['IP'], int(config.client['Srv_UDP']))
         time.sleep(2)
-
-    # If reached here HELLO comunication stopped, close Local_TCP
-    tcp_on.clear()
-    sock_tcp.close()
 
 #####################
 # Hello Process END #
@@ -402,7 +413,7 @@ def send_data(device: str) -> None:
         # Connect to the server
         server_socket.connect((config.client['Server'], int(config.client['Server_Config']['TCP'])))
     except Exception as e:
-        logs.error("An error has occurred while connecting to the server:")
+        logs.error(f"An error has occurred while connecting to the server: {e}")
 
     logs.info(f"Open port {config.client['Server_Config']['TCP']} to send data.")
 
@@ -562,6 +573,9 @@ def _init_():
     # Read and create client config
     config.init_client(args.c)
 
+    # Set SIGNAL
+    signal.signal(signal.SIGINT, handle_SIGINT)
+
     # Create sockets
     # UDP
     sock_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -587,6 +601,16 @@ def open_comm():
     logs.info(f"Opened TCP connection on port {config.client['Local_TCP']}")
     # Set flag
     tcp_on.set()
+
+def handle_SIGINT(sig, frame):
+    print("\nExiting")
+    disconnected.set()
+    sock_udp.close()
+    try:
+        sock_tcp.close()
+    except:
+        pass
+    exit(0)
 
 def main():
     # Create global variables
@@ -621,7 +645,7 @@ def main():
             for sock_or_input in readable:
 
                 # TCP data reception
-                if sock_or_input is sock_tcp:
+                if tcp_on.is_set() and sock_or_input is sock_tcp:
                     recv_data()
                 
                 # Commands
@@ -632,15 +656,6 @@ def main():
 
     except Exception as e:
         logs.error(f"An exception has ocurred: {e}",True)
-    except KeyboardInterrupt:
-
-        disconnected.set()
-        sock_udp.close()
-        try:
-            sock_tcp.close()
-        except:
-            pass
-
     finally:
         disconnected.set()
         sock_udp.close()
