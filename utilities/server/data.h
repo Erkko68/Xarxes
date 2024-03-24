@@ -45,9 +45,11 @@ struct dataPetition {
  *
  * @param packet The TCPPacket struct containing data to be saved.
  * @param controller The Controller struct containing information about the controller.
- * @return 0 if successful, -1 if failed to open/create file.
+ * @param packetType The type of packet from the data has been received.
+ * 
+ * @return NULL if successful, a msg if failed to open/write/create file.
  */
-const char *save(struct TCPPacket *packet, struct Controller *controller);
+const char *save(struct TCPPacket *packet, struct Controller *controller, unsigned char packetType);
 
 /**
  * @brief Function to handle data petition communication.

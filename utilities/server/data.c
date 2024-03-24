@@ -25,7 +25,7 @@ const char* getTCPName(enum TCPType type) {
         case SEND_DATA: return "SEND_DATA";
         case SET_DATA: return "SET_DATA";
         case GET_DATA: return "GET_DATA";
-        case DATA_ACK: return "GET_DATA";
+        case DATA_ACK: return "DATA_ACK";
         case DATA_NACK: return "DATA_NACK";
         case DATA_REJ: return "DATA_REJ";
         default: return "UNKNOWN";
@@ -41,9 +41,11 @@ const char* getTCPName(enum TCPType type) {
  *
  * @param packet The TCPPacket struct containing data to be saved.
  * @param controller The Controller struct containing information about the controller.
- * @return 0 if successful, -1 if failed to open/create file.
+ * @param packetType The type of packet from the data has been received.
+ * 
+ * @return NULL if successful, a msg if failed to open/write/create file.
  */
-const char* save(struct TCPPacket *packet, struct Controller *controller) {
+const char* save(struct TCPPacket *packet, struct Controller *controller, unsigned char packetType) {
     char filename[50], date_str[9];
     FILE *file;
     time_t now;
@@ -65,7 +67,7 @@ const char* save(struct TCPPacket *packet, struct Controller *controller) {
     strftime(date_str, sizeof(date_str), "%d-%m-%y", local_time);
 
     /* Write data to file */
-    if (fprintf(file, "%s,%s,%s,%s,%s\n", date_str, get_current_time(), getTCPName(packet->type), packet->device, packet->value) < 0) {
+    if (fprintf(file, "%s,%s,%s,%s,%s\n", date_str, get_current_time(), getTCPName(packetType), packet->device, packet->value) < 0) {
         fclose(file);
         return strerror(errno);
     }
@@ -203,7 +205,7 @@ void dataPetition(void *st){
         case DATA_ACK:
 
             linfo("Received confirmation for device %s. Storing data...",true,args->device);
-            if ((result = save(dataPacket,args->controller)) == NULL){
+            if ((result = save(dataPacket,args->controller,packetType)) == NULL){
                 linfo("Controller %s updated %s. Value: %s", false, dataPacket->mac,dataPacket->device,dataPacket->value);
             } else {
                 /* Print fail messages */
@@ -282,7 +284,7 @@ void dataReception(void* args){
                 if(hasDevice(tcp_packet->device,&dataArgs->controllers[controllerIndex]) != -1){
                     const char *result;
                     /*Check error msg*/
-        /*---->*/    if ((result = save(tcp_packet,&dataArgs->controllers[controllerIndex])) == NULL){
+        /*---->*/    if ((result = save(tcp_packet,&dataArgs->controllers[controllerIndex],SEND_DATA)) == NULL){
                         linfo("Controller %s updated %s. Value: %s", false, tcp_packet->mac,tcp_packet->device,tcp_packet->value);
                         packetType = DATA_ACK;
                     } else {

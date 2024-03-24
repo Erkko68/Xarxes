@@ -51,7 +51,7 @@ int tcp_socket, udp_socket;
 struct Controller *controllers = NULL;
 
 /* Struct for thread pool */
-thread_pool_t *threadPool;
+thread_pool_t *threadPool = NULL;
 
 /* Closes the server */
 void quit(int signum) {

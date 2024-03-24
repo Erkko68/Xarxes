@@ -59,11 +59,12 @@ void* worker(void *arg) {
  */
 thread_pool_t* thread_pool_create() {
     int i;
-    thread_pool_t *pool = (thread_pool_t*)malloc(sizeof(thread_pool_t));
-    if (!pool) {
+    thread_pool_t *pool = NULL;
+    pool = (thread_pool_t*)malloc(sizeof(thread_pool_t));
+    if ( pool == NULL) {
         lerror("Failed to allocate memory for thread pool",true);
     }
-    pool->head = pool->tail = pool->count = 0;
+    pool->head = pool->tail = pool->count = pool->shutdown = 0;
     pthread_mutex_init(&pool->lock, NULL);
     pthread_cond_init(&pool->not_empty, NULL);
     pthread_cond_init(&pool->not_full, NULL);
@@ -118,13 +119,11 @@ void thread_pool_shutdown(thread_pool_t *pool) {
     int i;
 
     for (i = 0; i < MAX_THREADS; i++) {
-        thread_pool_submit(pool, POISON_PILL, NULL);
+        thread_pool_submit(pool, POISON_PILL, POISON_PILL);
     }
 
     pthread_mutex_lock(&pool->lock);
     pool->shutdown = 1;
-    pthread_cond_signal(&pool->not_empty);
-    pthread_cond_signal(&pool->not_full);
     pthread_mutex_unlock(&pool->lock);
 
     /* Wait for worker threads to receive POISON_PILL */
