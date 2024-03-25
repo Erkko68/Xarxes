@@ -475,7 +475,7 @@ def send_data(device: str) -> None:
 ####################
 # Data Process END #
 ####################
-    
+
 ############
 # COMMANDS #
 ############
