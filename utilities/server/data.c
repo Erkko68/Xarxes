@@ -295,26 +295,26 @@ void dataReception(void* args){
                     }
                 } else {
                     sprintf(msg,"Controller doesn't have %s device.",tcp_packet->device);
-                    lwarning("Denied connection to Controller: %s. Reason: Controller doesn't have %s device.", false, tcp_packet->mac,tcp_packet->device);
+                    lwarning("Denied connection to Controller: %s. Reason: Controller doesn't have %s device. Disconnecting...", false, tcp_packet->mac,tcp_packet->device);
                     packetType = DATA_NACK;
                     disconnectController(&dataArgs->controllers[controllerIndex]);
                 }
             } else {
                 sprintf(msg,"Controller is not in SEND_HELLO status.");
-                lwarning("Denied connection to Controller: %s. Reason: Controller is not in SEND_HELLO status.", false, tcp_packet->mac);
+                lwarning("Denied connection to Controller: %s. Reason: Controller is not in SEND_HELLO status. Disconnecting...", false, tcp_packet->mac);
                 packetType = DATA_REJ;
                 disconnectController(&dataArgs->controllers[controllerIndex]);
             }
         } else {
             sprintf(msg,"Wrong Identification.");
-            lwarning("Denied connection to Controller: %s. Reason: Wrong Identification.", false, tcp_packet->mac);
+            lwarning("Denied connection to Controller: %s. Reason: Wrong Identification. Disconnecting...", false, tcp_packet->mac);
             disconnectController(&dataArgs->controllers[controllerIndex]);
             packetType = DATA_REJ;
         }
 
     } else {
         sprintf(msg,"Not listed in allowed Controllers file.");
-        lwarning("Denied connection to Controller: %s. Reason: Not listed in allowed Controllers file.", false, tcp_packet->mac);
+        lwarning("Denied connection to Controller: %s. Reason: Not listed in allowed Controllers file. Disconnecting...", false, tcp_packet->mac);
         packetType = DATA_REJ;
     }
 
