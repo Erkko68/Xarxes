@@ -172,7 +172,7 @@ void handleSubsInfo(struct Server *srvConf, struct sockaddr_in *newAddress, stru
         sendUdp(newUDPSocket, createUDPPacket(INFO_ACK, srvConf->mac, rnd, tcpPort), newAddress);
         /* Save controller Data and set SUBSCRIBED status */
         pthread_mutex_lock(&mutex);
-            linfo("Controller: %s [SUBSCRIBED].", true, controller->name);
+            linfo("Controller %s [SUBSCRIBED].", true, controller->name);
             controller->data.tcp = atoi(tcp);
             inet_ntop(AF_INET, &(newAddress->sin_addr), controller->data.ip, INET_ADDRSTRLEN);
             strcpy(controller->data.rand, rnd);
