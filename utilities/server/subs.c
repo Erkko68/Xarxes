@@ -295,7 +295,7 @@ void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *control
     situation = strtok(NULL, ",");
 
     /* Check if packet has correct identifier and situation */
-    if (situation != NULL && (strlen(udp_packet->rnd) == 8) && (strlen(situation) == 12)) {
+    if (situation != NULL && (strncmp(udp_packet->rnd,"00000000",8) == 0) && (strlen(situation) == 12)) {
         subsProcess(udp_socket, clienAddr, controller, situation, serv_conf);
 
     } else { 
@@ -319,8 +319,10 @@ void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *control
  * @return NULL
  */
 void handleUDPConnection(void* udp_args){
-    struct subsThreadArgs *args = (struct subsThreadArgs*)udp_args;
+    struct subsThreadArgs *args = NULL;
     int controllerIndex = 0;
+    args = (struct subsThreadArgs*)udp_args;
+    
 
     /*Checks if incoming packet has allowed name and mac adress*/
     pthread_mutex_lock(&mutex);

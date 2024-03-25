@@ -227,7 +227,7 @@ void dataPetition(void *st){
 
         case DATA_REJ:
 
-            lwarning("Controller rejected data. Disconecting...",true);
+            lwarning("Controller rejected data. Disconnecting...",true);
             disconnectController(args->controller);
             break;
 
