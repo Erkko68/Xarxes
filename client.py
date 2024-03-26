@@ -241,6 +241,11 @@ def hello_recv_thread():
             disconnected.set()
             tcp_on.clear()
             return
+        elif disconnected.is_set():
+            # Detected problem in TCP data recpetion
+            sock_tcp.close()
+            tcp_on.clear()
+            return
         else:
             if check_hello(hello, addr):
                 missed = 0
@@ -631,7 +636,7 @@ def main():
         while True:
                 
             if tcp_on.is_set():
-                readable, _, _ = select.select([sock_tcp,sys.stdin], [], [], 0.1)
+                readable, _, _ = select.select([sock_tcp,sys.stdin], [], [], 1)
             else:
                 readable, _, _ = select.select([sys.stdin], [], [], 1)
 
