@@ -150,22 +150,11 @@ int loadControllers(struct Controller **controllers, const char *filename) {
  */
 int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers, int maxControlers) {
     int i;
-    /* Make a copy of packet data*/
-    char data_copy[80];
-    char* name;
-
-    strcpy(data_copy, packet.data);
-    /*Tokenize copied data*/
-    
-    name = strtok(data_copy, ",");
-    if(name == NULL) {
-        return -1;
-    }
 
     /*Iterate over allowed controllers*/
     for (i = 0; i < maxControlers; i++) {
         if (strcmp(packet.mac, controllers[i].mac) == 0 && 
-            strcmp(name, controllers[i].name) == 0) {
+            strstr(packet.data, controllers[i].name) != NULL) {
             /*Return index*/
             return i;
         }
@@ -174,13 +163,14 @@ int isUDPAllowed(const struct UDPPacket packet, struct Controller *controllers, 
 
     return -1;
 }
+
 /**
  * @brief Checks if a TCP packet is allowed.
  *
- * This function iterates through the provided array of controllers and compares the MAC address and
- * random data (rnd) of the given TCP packet with each controller. If a matching controller is found,
- * the function returns the index of the controller in the array. Otherwise, it returns -1 indicating
- * that the packet is not allowed.
+ * This function iterates through the provided array of controllers and compares the MAC address 
+ * of the given TCP packet with each controller. If a matching controller is found, the function 
+ * returns the index of the controller in the array. Otherwise, it returns -1 indicating that the 
+ * packet is not allowed.
  * 
  * @param packet The TCPPacket struct representing the TCP packet to check.
  * @param controllers Pointer to the array of Controller structs containing allowed controllers.

@@ -178,7 +178,7 @@ int main(int argc, char *argv[]) {
                 /* Check if 6 seconds have passed since the last packet */
                 if (current_time - controllers[i].data.lastPacketTime > 6) {
                     pthread_mutex_unlock(&mutex);
-                    linfo("Controller %s hasn't sent 3 consecutive packets. DISCONNECTING...",false,controllers[i].name);
+                    linfo("Controller %s hasn't sent 3 consecutive packets. DISCONNECTING...",true,controllers[i].name);
                     disconnectController(&controllers[i]);
                     continue;
                 }

@@ -172,7 +172,7 @@ void handleSubsInfo(struct Server *srvConf, struct sockaddr_in *newAddress, stru
         sendUdp(newUDPSocket, createUDPPacket(INFO_ACK, srvConf->mac, rnd, tcpPort), newAddress);
         /* Save controller Data and set SUBSCRIBED status */
         pthread_mutex_lock(&mutex);
-            linfo("Controller: %s [SUBSCRIBED].", true, controller->name);
+            linfo("Controller %s [SUBSCRIBED].", true, controller->name);
             controller->data.tcp = atoi(tcp);
             inet_ntop(AF_INET, &(newAddress->sin_addr), controller->data.ip, INET_ADDRSTRLEN);
             strcpy(controller->data.rand, rnd);
@@ -210,9 +210,6 @@ void handleSubsInfo(struct Server *srvConf, struct sockaddr_in *newAddress, stru
  * @param addr The address of the controller
  */
 void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int udp_socket, struct Server *serv_conf, struct sockaddr_in *addr) {
-    char* situation;
-    char dataCpy[80]; /* Make copy in case we need to send it back */
-
     /* Check if its SUBS_REJ */
     if(udp_packet.type == HELLO_REJ){
         pthread_mutex_lock(&mutex);
@@ -229,18 +226,9 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
         pthread_mutex_unlock(&mutex);
         return;
     }
-    strcpy(dataCpy, udp_packet.data);
-
-    strtok(dataCpy, ","); /* Ignore first name (Since it was checked at isUDPAllowed) */
-    situation = strtok(NULL, ",");
-
-    /* DEBUG
-        printf("Expe: %s,%s,%s\n",controller->data.situation,controller->mac,controller->data.rand);
-        printf("Sent: %s,%s,%s\n",situation,udp_packet.mac,udp_packet.rnd);
-    */
     /* Check correct packet data */
     pthread_mutex_lock(&mutex);
-    if(situation != NULL && (strcmp(situation, controller->data.situation) == 0) && 
+    if((strstr(udp_packet.data,controller->data.situation) != NULL) && 
     (strcmp(udp_packet.mac, controller->mac) == 0) && 
     (strcmp(udp_packet.rnd, controller->data.rand) == 0)){
         char data[80];
@@ -295,7 +283,7 @@ void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *control
     situation = strtok(NULL, ",");
 
     /* Check if packet has correct identifier and situation */
-    if (situation != NULL && (strlen(udp_packet->rnd) == 8) && (strlen(situation) == 12)) {
+    if (situation != NULL && (strncmp(udp_packet->rnd,"00000000",8) == 0) && (strlen(situation) == 12)) {
         subsProcess(udp_socket, clienAddr, controller, situation, serv_conf);
 
     } else { 
@@ -319,8 +307,10 @@ void handleDisconnected(struct UDPPacket *udp_packet, struct Controller *control
  * @return NULL
  */
 void handleUDPConnection(void* udp_args){
-    struct subsThreadArgs *args = (struct subsThreadArgs*)udp_args;
+    struct subsThreadArgs *args = NULL;
     int controllerIndex = 0;
+    args = (struct subsThreadArgs*)udp_args;
+    
 
     /*Checks if incoming packet has allowed name and mac adress*/
     pthread_mutex_lock(&mutex);

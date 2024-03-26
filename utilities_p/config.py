@@ -79,7 +79,7 @@ def init_client(file_path):
                 if key == 'Name':
                     if not len(value) == 8: logs.warning("Name must be 8 alphanumeric characters long.",True)
                 elif key == 'Situation':
-                    if not re.match(r'^B\d{2}F\d{2}R\d{2}Z\d{2}$', value): logs.warning("Invalid Situation Format.",True)
+                    if not re.match(r'^B\d{2}L\d{2}R\d{2}A\d{2}$', value): logs.warning("Invalid Situation Format.",True)
                 elif key == 'Elements':
                     value = _process_elements(value)
                 elif key == 'MAC':

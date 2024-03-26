@@ -71,7 +71,9 @@ thread_pool_t* thread_pool_create() {
     pthread_cond_init(&pool->not_full, NULL);
 
     for (i = 0; i < MAX_THREADS; i++) {
-        pthread_create(&pool->threads[i], NULL, worker, (void*)pool);
+        if(pthread_create(&pool->threads[i], NULL, worker, (void*)pool) != 0){
+            lerror("Unexpected error while creating worker thread num: %i",true,i);
+        }
     }
     return pool;
 }
