@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
             lerror("Error creating UDP socket",true);
         }
 
-    linfo("Binding sockets to server adress...",false);
+    linfo("Binding sockets to server address...",false);
         /* Bind TCP socket */
         if (bind(tcp_socket, (struct sockaddr *)&serv_conf.tcp_address, sizeof(serv_conf.tcp_address)) < 0) {
             lerror("Error binding TCP socket",true);
