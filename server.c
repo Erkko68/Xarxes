@@ -36,7 +36,7 @@
  * - `utilities/server/subs.c`: Manages controller subscription requests and periodic communication.
  * - `utilities/server/commands.c`: Executes server management commands.
  * - `utilities/server/data.c`: Handles data transmission, request and storage.
- * 
+ * - `utilities/threadpool.c: Has functions to execute and manage the threadpool.
  */
 
 #include "utilities/commons.h"
