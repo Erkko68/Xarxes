@@ -228,7 +228,8 @@ void handleHello(struct UDPPacket udp_packet, struct Controller *controller, int
     }
     /* Check correct packet data */
     pthread_mutex_lock(&mutex);
-    if((strstr(udp_packet.data,controller->data.situation) != NULL) && 
+    if((strstr(udp_packet.data,controller->data.situation) != NULL) &&
+    (strstr(udp_packet.data,controller->name) != NULL) && 
     (strcmp(udp_packet.mac, controller->mac) == 0) && 
     (strcmp(udp_packet.rnd, controller->data.rand) == 0)){
         char data[80];

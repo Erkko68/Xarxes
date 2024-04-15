@@ -113,8 +113,8 @@ void thread_pool_submit(thread_pool_t *pool, void (*function)(void*), void *argu
  *
  * This function initiates the shutdown process for the thread pool.
  * It sets the shutdown flag, broadcasts to all worker threads that
- * they should exit, waits for all threads to join, and then cleans
- * up the resources associated with the thread pool.
+ * they should exit, waits for all threads to join, and then frees
+ * the resources associated with the thread pool.
  * 
  * @param pool Pointer to the thread pool to be shut down.
  */

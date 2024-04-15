@@ -5,7 +5,7 @@ Description: A python program that simulates the interaction of a client with di
              It uses diferent modules located in the utilities_p folder to simplify the readability of this main program.
 Author: Eric Bitria Ribes
 Version: 0.4
-Last Modified: 2024-3-18
+Last Modified: 2024-4-15
 """
 
 # Args
@@ -197,7 +197,8 @@ def check_hello(packet: pdu_udp.Packet, address) -> bool:
     """
     return (packet.mac == config.client['Server_Config']['MAC'] and 
             packet.rnd == config.client['Server_Config']['rnd'] and 
-            address[0] == config.client['Server_Config']['IP'])
+            address[0] == config.client['Server_Config']['IP']  and
+            packet.data == config.client['Name'] + ',' + config.client['Situation'])
 
 def send_hello_rej(hello: pdu_udp.Packet) -> None:
     """
@@ -698,12 +699,10 @@ def close_comm():
 def handle_SIGINT(sig, frame):
     global disconnected, tcp_on
     print("\nExiting")
-    lock.acquire()
     disconnected = True
     sock_udp.close()
     if tcp_on:
         close_comm()
-    lock.release()
     exit(0)
 
 def main():
