@@ -75,6 +75,7 @@ def error(message, override=False):
     msg = _get_timestamp() + " " + _colored_message("[ERROR]", 'red') + " " + message
     if debug or override:
         print(msg)
+        
     exit(-1)
 
 def get_key(val, dictionary):
