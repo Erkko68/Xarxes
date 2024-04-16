@@ -21,7 +21,7 @@
  * This function represents the worker routine that each thread in the
  * thread pool executes. It continuously waits for tasks to be available
  * in the task queue, executes them, and then waits for the next task.
- * If the shutdown flag is set, the worker thread exits.
+ * If a posion pill task is encountered the worker exits.
  * 
  * @param arg Pointer to the thread pool structure.
  */

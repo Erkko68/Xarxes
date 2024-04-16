@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, quit);
 
     /* Init thread pool */
-    threadPool = thread_pool_create(4,10);
+    threadPool = thread_pool_create();
 
     /*Initialise server configuration struct*/
     linfo("Reading server configuration files...",false);
