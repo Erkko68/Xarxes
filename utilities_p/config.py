@@ -124,7 +124,7 @@ def _process_elements(elements: str) -> dict:
     return device_dict
 
 
-def set_status(name: str) -> None:
+def set_status(name: str,show=True) -> None:
     """
     Function to set the client status:
         'DISCONNECTED': 0xa0,
@@ -139,6 +139,6 @@ def set_status(name: str) -> None:
     - param (name): The name of the client status to set.
     """
     if client['status'] != status[name]:  # Check if the status is already set to the desired value
-        logs.info(f"Controller Status: {name}", True)
+        logs.info(f"Controller Status: {name}", show)
         client['status'] = status[name]
 

@@ -89,7 +89,7 @@ def subs_process() -> bool:
     Returns:
     - bool: True if subscription is successful, False otherwise.
     """
-    global subs_attempts, disconnected
+    global subs_attempts
 
     t = 1; u = 2; n = 7; o = 3; p = 3; q = 3
     wait = t
@@ -144,13 +144,12 @@ def subs_process() -> bool:
             # Call new subs_process
             return False
     else:
-        config.set_status('DISCONNECTED')
+        config.set_status('DISCONNECTED',False)
         # If subscription attempts ended exit
         # Program exited
-        disconnected = True
         sock_udp.close()
-        if tcp_on:
-            close_comm()
+        if config.client['status'] == config.status['SEND_HELLO']:
+            sock_tcp.close()
         logs.error(f"Could not establish connection with server {config.client['Server']}", True)
     
     # WAIT_ACK_INFO process
@@ -172,7 +171,7 @@ def subs_process() -> bool:
             return True
         
         config.set_status('NOT_SUBSCRIBED')
-        logs.info("Received wrong INFO_ACK data.")
+        logs.warning("Received wrong INFO_ACK data.")
         time.sleep(2)
         return False
 
@@ -215,38 +214,36 @@ def hello_recv_thread():
     Thread function for receiving and processing HELLO packets.
     """
 
-    global disconnected
     global subs_attempts
 
     # Set first max wait time (2 times original value)
     sock_udp.settimeout(4)
     hello, addr = pdu_udp.recvUDP(sock_udp)
 
+
     if hello is None:
         logs.warning("Server hasn't sent first HELLO packet.")
-        lock.acquire()
-        disconnected = True
-        lock.release()
+        config.set_status('NOT_SUBSCRIBED')
         time.sleep(2)
+    
         return
     elif hello.packet_type == pdu_udp.packet_type['HELLO_REJ']:
         logs.warning("Received HELLO_REJ.")
-        lock.acquire()
-        disconnected = True
-        lock.release()
+        config.set_status('NOT_SUBSCRIBED')
         time.sleep(2)
+    
         return
     else:
         if check_hello(hello, addr):
+            # Open TCP connection
+            open_comm()
             # Set status
             config.set_status('SEND_HELLO')
-            open_comm()
+        
         else:
-            send_hello_rej(hello)
-            lock.acquire()
-            disconnected = True
-            lock.release()
+            config.set_status('NOT_SUBSCRIBED')
             logs.warning("Received wrong HELLO packet credentials.")
+        
             time.sleep(2)
             return
 
@@ -254,49 +251,38 @@ def hello_recv_thread():
     sock_udp.settimeout(2)
 
     # Set maximum packets missed
-    missed = 0
-    while missed < 3 and config.status['SEND_HELLO']:
-        hello, addr = pdu_udp.recvUDP(sock_udp)
 
-        lock.acquire()
-        if disconnected:
-            config.set_status('NOT_SUBSCRIBED')
-            close_comm()
-            lock.release()
-            time.sleep(2)
-            return
-        else:
-            lock.release()
+    missed = 0
+    while missed < 3 and config.client['status'] == config.status['SEND_HELLO']:
+    
+
+        hello, addr = pdu_udp.recvUDP(sock_udp)
         
-        lock.acquire()
+    
         if hello is None:
             missed += 1
-            lock.release()
         elif hello.packet_type == pdu_udp.packet_type['HELLO_REJ']:
             logs.warning("Received HELLO_REJ.")
             config.set_status('NOT_SUBSCRIBED')
-            disconnected = True
-            close_comm()
-            lock.release()
+            sock_tcp.close()
+        
             time.sleep(2)
             return
         else:
             if check_hello(hello, addr):
                 missed = 0
                 subs_attempts = 0
-                lock.release()
             else:
-                lock.release()
+            
                 break
+        
         
     else:   
         # If reached here lost connection with server, stopping reception thread
-        logs.warning("Server hasn't sent 3 consecutive HELLO packets.")
+        if config.client['status'] == config.status['SEND_HELLO']:
+            logs.warning("Server hasn't sent 3 consecutive HELLO packets.")
         config.set_status('NOT_SUBSCRIBED')
-        lock.acquire()
-        disconnected = True
-        close_comm()
-        lock.release()
+        sock_tcp.close()
         time.sleep(2)
         return
 
@@ -304,10 +290,7 @@ def hello_recv_thread():
     send_hello_rej(hello)
     logs.warning("Received wrong HELLO packet data.")
     config.set_status('NOT_SUBSCRIBED')
-    lock.acquire()
-    disconnected = True
-    close_comm()
-    lock.release()
+    sock_tcp.close()
     time.sleep(2)
     return
 
@@ -325,15 +308,12 @@ def hello_process_thread():
                                   config.client['Name'] + ',' + config.client['Situation']
                                   )
     # Start periodic hello send
-    while True:
-        lock.acquire()
-        if disconnected:
-            lock.release()
-            return
-        lock.release()
 
+    while config.client['status'] == config.status['SUBSCRIBED'] or config.client['status'] == config.status['SEND_HELLO']:
+    
         pdu_udp.send(sock_udp, pdu_udp.to_bytes(hello_packet), config.client['Server_Config']['IP'], int(config.client['Srv_UDP']))
         time.sleep(2)
+    
 
 #####################
 # Hello Process END #
@@ -415,7 +395,6 @@ def get_data(packet: pdu_tcp.Packet, socket: socket.socket) -> None:
                     )
 
 def recv_data():
-    global disconnected, tcp_on
 
     # Accept new server connection
     server_socket, server_address = sock_tcp.accept()
@@ -440,20 +419,14 @@ def recv_data():
         else:
             logs.warning("Received unexpected packet.")
             config.set_status('NOT_SUBSCRIBED')
-            lock.acquire()
-            disconnected = True
-            close_comm()
-            lock.release()
+            sock_tcp.close()
     else:
         logs.warning(f"Received wrong data packet credentials.")
         pdu_tcp.send(server_socket,
                     pdu_tcp.to_bytes(pdu_tcp.Packet(pdu_tcp.packet_type['DATA_REJ'],config.client['MAC'],config.client['Server_Config']['rnd'],packet.device,packet.val,"Wrong packet credentials."))
                     )
         config.set_status('NOT_SUBSCRIBED')
-        lock.acquire()
-        disconnected = True
-        close_comm()
-        lock.release()
+        sock_tcp.close()
 
     server_socket.close()
     return
@@ -469,22 +442,18 @@ def send_data(device: str) -> None:
     - None
     """
 
-    global disconnected
-    global tcp_on
-
     # Create new TCP socket
     try:
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # Connect to the server
         server_socket.connect((config.client['Server'], int(config.client['Server_Config']['TCP'])))
     except Exception as e:
-        disconnected = True
         sock_udp.close()
-        if tcp_on:
-            close_comm()
+        if config.client['status'] == config.status['SEND_HELLO']:
+            sock_tcp.close()
         logs.error(f"An error has occurred while connecting to the server: {e}")
 
-    logs.info(f"Open port {config.client['Server_Config']['TCP']} to send data.")
+    logs.info(f"Opened port {config.client['Server_Config']['TCP']} to send data.")
 
     # Send the packet
     pdu_tcp.send(server_socket,
@@ -514,24 +483,18 @@ def send_data(device: str) -> None:
         logs.warning("Received wrong server credentials in send packet response.")
         config.set_status('NOT_SUBSCRIBED')
         server_socket.close()
-        lock.acquire()
-        disconnected = True
-        close_comm()
-        lock.release()
+        sock_tcp.close()
         return
     
     elif (response.device != device or response.val != str(config.client['Elements'][device])):
         logs.warning("Received wrong device name or value in send packet response.")
         config.set_status('NOT_SUBSCRIBED')
         server_socket.close()
-        lock.acquire()
-        disconnected = True
-        close_comm()
-        lock.release()
+        sock_tcp.close()
         return
     
     elif response.ptype == pdu_tcp.packet_type['DATA_ACK']:
-        logs.info("Server succesfully stored device info.")
+        logs.info("Server succesfully stored device info.",True)
 
     elif response.ptype == pdu_tcp.packet_type['DATA_NACK']:
         logs.warning(f"Send rejected: {response.info}")
@@ -540,20 +503,14 @@ def send_data(device: str) -> None:
         logs.warning("Server rejected data. Disconnecting...")
         config.set_status('NOT_SUBSCRIBED')
         server_socket.close()
-        lock.acquire()
-        disconnected = True
-        close_comm()
-        lock.release()
+        sock_tcp.close()
         return
 
     else:
         logs.warning("Received unexpected data during send validation. Disconnecting")
         config.set_status('NOT_SUBSCRIBED')
         server_socket.close()
-        lock.acquire()
-        disconnected = True
-        close_comm()
-        lock.release()
+        sock_tcp.close()
         return
     
 ####################
@@ -567,7 +524,6 @@ def send_data(device: str) -> None:
 def stat():
     print("******************** CONTROLLER DATA *********************")
     print(f"MAC: {config.client['MAC']}, Nom: {config.client['Name']}, Situació: {config.client['Situation']}\n")
-    print(f"Status: {config.client['MAC']}\n")
     print("    Device       Value")
     print("    ------       -----")
     for key, value in config.client['Elements'].items():
@@ -576,10 +532,10 @@ def stat():
 
 def set_val(device: str, value: str):
     if len(value) > 6:
-        print("Value must be maximum 6 characters long.")
+        logs.warning("Device must be maximum 6 characters long.",True)
     else:
         config.client['Elements'][device] = value
-        logs.info(f"Updated data for device {device}: {value}")
+        logs.info(f"Updated data for device {device}: {value}",True)
 
 def selector(line: str) -> None:
     """
@@ -591,7 +547,6 @@ def selector(line: str) -> None:
     Returns:
     - None
     """
-    global disconnected, tcp_on
     # Split the input line into tokens
     tokens = line.strip().split()
 
@@ -624,9 +579,11 @@ def selector(line: str) -> None:
             logs.warning("Device not found",True)
 
     elif command == 'quit':
-        if not disconnected:
-            disconnected = True
-            close_comm()
+        if config.client['status'] == config.status['SEND_HELLO']:
+            sock_tcp.close()
+
+        config.set_status('DISCONNECTED',False)
+
         sock_udp.close()
         exit()
     else:
@@ -666,7 +623,7 @@ def _init_():
 
 def open_comm():
 
-    global sock_tcp, tcp_on, disconnected
+    global sock_tcp
     
     sock_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -674,47 +631,34 @@ def open_comm():
     try:
         sock_tcp.bind((config.client['Server'], int(config.client['Local_TCP'])))
     except:
-        disconnected = True
+        config.set_status('DISCONNECTED',False)
         logs.error(f"Failed to bind to local TCP port: Address might already be in use by another client.")
     
     # Call listen
     try:
         sock_tcp.listen(5)
     except OSError as e:
-        disconnected = True
         logs.error(f"Failed to start listening for TCP connections: {e}")
 
     logs.info(f"Opened TCP connection on port {config.client['Local_TCP']}")
 
-    lock.acquire()
-    tcp_on = True
-    lock.release()
-
-def close_comm():
-    # Used to close TCP socket
-    global tcp_on
-    sock_tcp.close()
-    tcp_on = False
-
 def handle_SIGINT(sig, frame):
-    global disconnected, tcp_on
+
     print("\nExiting")
-    disconnected = True
+
+    if config.client['status'] == config.status['SEND_HELLO']:
+        sock_tcp.close()
+
+    config.set_status('DISCONNECTED',False)
+
     sock_udp.close()
-    if tcp_on:
-        close_comm()
     exit(0)
 
 def main():
     # Create global variables
-    global tcp_on
-    global lock
     global subs_attempts
-    global disconnected
-    disconnected = True
+    global sock_tcp
     subs_attempts = 0
-    tcp_on = False
-    lock = threading.Lock()
 
     config.set_status('NOT_SUBSCRIBED')
     
@@ -722,43 +666,32 @@ def main():
     try:
         while True:
             # Start subscription and periodic communication
-            lock.acquire()
-            if disconnected and subs_process():
-                disconnected = False
-                lock.release()
-                hello_process = threading.Thread(target=hello_process_thread,daemon=True)
-                hello_process.start()
-            else:
-                lock.release()
+        
+            if config.client['status'] == config.status['NOT_SUBSCRIBED'] and subs_process():
             
+                hello_process = threading.Thread(target=hello_process_thread,daemon=True)
+                hello_process.start()            
+        
             # Check file descriptors
-            lock.acquire()
-            if not disconnected:
-                lock.release()
+            if config.client['status'] == config.status['SEND_HELLO']:
                 # Set select
-                if tcp_on:
-                    readable, _, _ = select.select([sock_tcp,sys.stdin], [], [], 1)
-                else:
-                    readable, _, _ = select.select([sys.stdin], [], [], 1)
-                # Commands
+                readable, _, _ = select.select([sock_tcp,sys.stdin], [], [], 0.05)
+
                 if sys.stdin in readable:
-                    if config.client['status'] == config.status['SEND_HELLO']:
-                        # Read command input
-                        selector(sys.stdin.readline().strip())
+                    # Read command input
+                    selector(sys.stdin.readline().strip())
             
                 # TCP data reception
-                if tcp_on and sock_tcp in readable:
+                if config.client['status'] == config.status['SEND_HELLO'] and sock_tcp in readable:
                     recv_data()
-            else:
-                lock.release()
+                
                 
     except Exception as e:
         logs.error(f"An exception has ocurred: {e}",True)
     finally:
-        disconnected = True
         sock_udp.close()
-        if tcp_on:
-            close_comm()
+        if config.client['status'] == config.status['SEND_HELLO']:
+            sock_tcp.close()
 
 # Program Call
 if __name__ == "__main__":
