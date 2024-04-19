@@ -35,7 +35,11 @@
 			"string_view": "c",
 			"errno.h": "c",
 			"compare": "c",
-			"unistd.h": "c"
+			"unistd.h": "c",
+			"threads.h": "c",
+			"stdarg.h": "c",
+			"signal.h": "c",
+			"types.h": "c"
 		}
 	}
 }

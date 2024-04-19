@@ -26,13 +26,13 @@
 
 #include <time.h>
 
-#include <pthread.h>
+#include <threads.h>
 
 #include <arpa/inet.h>
 #include <sys/select.h>
 
 /* Define global mutex between threads */
-extern pthread_mutex_t mutex;
+extern mtx_t mutex;
 
 /*Own Libraries*/
 #include "threadpool.h"

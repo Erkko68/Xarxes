@@ -32,10 +32,10 @@ typedef struct {
 typedef struct {
     task_t tasks[MAX_QUEUE_SIZE]; /* Array to store tasks in the queue. */
     int head, tail, count; /* Indices and count for task queue management. */
-    pthread_mutex_t lock; /* Mutex for controlling access to shared data. */
-    pthread_cond_t not_empty, not_full; /* Condition variables for synchronization. */
+    mtx_t lock; /* Mutex for controlling access to shared data. */
+    cnd_t not_empty, not_full; /* Condition variables for synchronization. */
     int shutdown; /* Flag to indicate if the thread pool is being shut down. */
-    pthread_t threads[MAX_THREADS]; /* Array to store worker threads. */
+    thrd_t threads[MAX_THREADS]; /* Array to store worker threads. */
 } thread_pool_t;
 
 /* Function declarations */

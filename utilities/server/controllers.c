@@ -270,7 +270,7 @@ int hasDevice(const char *device, const struct Controller *controller) {
  * @param controller Pointer to the controller struct to disconnect.
  */
 void disconnectController(struct Controller *controller) {
-    pthread_mutex_lock(&mutex);
+    mtx_lock(&mutex);
         initializeControllerInfo(&controller->data);
-    pthread_mutex_unlock(&mutex);
+    mtx_unlock(&mutex);
 }

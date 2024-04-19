@@ -42,7 +42,7 @@
 #include "utilities/commons.h"
 
 /* Init global mutex between threads */
-pthread_mutex_t mutex;
+mtx_t mutex;
 
 /*Create default server sockets file descriptors*/
 int tcp_socket, udp_socket;
@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
         }
 
     /*Initialise mutex (Locks and unlocks)*/
-    pthread_mutex_init(&mutex, NULL);
+    mtx_init(&mutex, mtx_plain);
     
     while (1+1!=3) {
         /*Define timeval struct for the select*/
@@ -161,9 +161,9 @@ int main(int argc, char *argv[]) {
             /*linfo("Received data in file descriptor UDP.", false);*/
             udp_args->packet = recvUdp(udp_socket, &udp_args->addr);
 
-            pthread_mutex_lock(&mutex);
+            mtx_lock(&mutex);
             udp_args->controller = controllers;
-            pthread_mutex_unlock(&mutex);
+            mtx_unlock(&mutex);
             udp_args->srvConf = &serv_conf;
             udp_args->socket = udp_socket;
 
@@ -172,20 +172,20 @@ int main(int argc, char *argv[]) {
 
         /*Update controllers packet timers*/
         for (i = 0; i < serv_conf.numControllers; i++) {
-            pthread_mutex_lock(&mutex);
+            mtx_lock(&mutex);
             if (controllers[i].data.lastPacketTime != 0) {
                 time_t current_time = time(NULL);
                 /* Check if 6 seconds have passed since the last packet */
                 if (current_time - controllers[i].data.lastPacketTime > 6) {
-                    pthread_mutex_unlock(&mutex);
+                    mtx_unlock(&mutex);
                     linfo("Controller %s hasn't sent 3 consecutive packets. DISCONNECTING...",true,controllers[i].name);
                     disconnectController(&controllers[i]);
                     continue;
                 }
-                pthread_mutex_unlock(&mutex);
+                mtx_unlock(&mutex);
                 continue;
             }
-            pthread_mutex_unlock(&mutex);
+            mtx_unlock(&mutex);
         }
 
         /* Check if the TCP file descriptor has received data */   
